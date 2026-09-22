@@ -1,0 +1,33 @@
+{
+  "login": {
+    "title": "Kirish",
+    "username": "Foydalanuvchi nomi",
+    "password": "Parol",
+    "submit": "Kirish"
+  },
+  "cart": {
+    "title": "Savat",
+    "product": "Tovar",
+    "price": "Narx",
+    "qty": "Miqdor",
+    "total": "Jami",
+    "clear": "Tozalash",
+    "remove": "O'chirish",
+    "park": "Qoldirish",
+    "resume": "Davom etish",
+    "discount": "Chegirma"
+  },
+  "payment": {
+    "title": "To'lov",
+    "cash": "Naqd",
+    "card": "Karta",
+    "split": "Bo'lish",
+    "debt": "Qarz",
+    "submit": "To'lash",
+    "due": "To'lov uchun"
+  },
+  "settings": {
+    "title": "Sozlamalar",
+    "language": "Til"
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "login": {
+    "title": "Вход",
+    "username": "Имя пользователя",
+    "password": "Пароль",
+    "submit": "Войти"
+  },
+  "titlebar": {
+    "title": "Касса"
+  },
+  "smena": {
+    "title": "Смена",
+    "open": "Открыть смену",
+    "close": "Закрыть смену",
+    "x_report": "X-отчёт",
+    "is_open": "Смена открыта",
+    "cannot_close_unprocessed": "Нельзя закрыть — есть непроведённые продажи"
+  },
+  "cart": {
+    "title": "Корзина",
+    "product": "Товар",
+    "price": "Цена",
+    "qty": "Кол-во",
+    "total": "Итого",
+    "clear": "Очистить",
+    "remove": "Удалить",
+    "park": "Отложить",
+    "resume": "Возобновить",
+    "discount": "Скидка",
+    "discount_percent": "Скидка %",
+    "discount_amount": "Скидка сумма"
+  },
+  "products": {
+    "search": "Поиск товара",
+    "scan": "Сканируйте штрих-код",
+    "not_found": "Товар не найден",
+    "out_of_stock": "Нет в наличии"
+  },
+  "payment": {
+    "title": "Оплата",
+    "cash": "Наличные",
+    "card": "Карта",
+    "split": "Разделить",
+    "debt": "Долг",
+    "tendered": "Внесено",
+    "change": "Сдача",
+    "submit": "Оплатить",
+    "due": "К оплате"
+  },
+  "debt": {
+    "client": "Клиент",
+    "search_client": "Поиск клиента",
+    "new_client": "Новый клиент",
+    "name": "Имя",
+    "phone": "Телефон",
+    "balance": "Баланс",
+    "debt": "Долг",
+    "pay_debt": "Оплата долга",
+    "amount": "Сумма"
+  },
+  "returns": {
+    "title": "Возврат",
+    "full": "Полный возврат",
+    "partial": "Частичный возврат",
+    "select_items": "Выберите товары"
+  },
+  "receipts": {
+    "title": "Чеки",
+    "search": "Поиск",
+    "date_from": "Дата с",
+    "date_to": "Дата по",
+    "print": "Печать",
+    "reprint": "Повторная печать",
+    "status": "Статус"
+  },
+  "receipt_statuses": {
+    "success": "Успешно",
+    "discounted": "Со скидкой",
+    "debt_added": "Долг добавлен",
+    "debt_paid": "Долг списан",
+    "partial_return": "Частичный возврат",
+    "full_return": "Полный возврат",
+    "error": "Ошибка"
+  },
+  "settings": {
+    "title": "Настройки",
+    "language": "Язык",
+    "printer": "Принтер",
+    "auto_print": "Автопечать",
+    "lock_time": "Время блокировки",
+    "auto_start": "Автозапуск",
+    "update": "Обновление",
+    "check_updates": "Проверить обновления",
+    "scale_prefixes": "Префиксы весового товара"
+  },
+  "lock": {
+    "locked": "Экран заблокирован",
+    "unlock": "Разблокировать"
+  },
+  "expenses": {
+    "title": "Расход",
+    "type": "Тип расхода",
+    "amount": "Сумма",
+    "note": "Примечание",
+    "add": "Добавить расход"
+  },
+  "sync": {
+    "title": "Синхронизация",
+    "pending": "Ожидает",
+    "error": "Ошибка синхронизации",
+    "retry": "Повторить"
+  },
+  "general": {
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "confirm": "Подтвердить",
+    "yes": "Да",
+    "no": "Нет",
+    "close": "Закрыть",
+    "loading": "Загрузка...",
+    "error": "Ошибка",
+    "success": "Успешно"
+  },
+  "x_report": {
+    "total_cash": "Итого наличными",
+    "total_card": "Итого картой",
+    "returns": "Возвраты",
+    "expenses": "Расходы",
+    "debt_sales": "Продажи в долг",
+    "sales_count": "Количество продаж",
+    "is_open": "Смена открыта"
+  }
+}
