@@ -33,6 +33,13 @@ Local SQLite is running in **WAL mode** (`PRAGMA journal_mode = WAL;`) with enfo
 
 ---
 
+## Local-first mode
+- **Fully offline**: Milestone 1 runs entirely against the local SQLite database. There is no backend client, no sync commands, and no network dependency.
+- **Future backend hook**: `transactions.sync_status` and `expenses.sync_status` columns are retained (rows are written as `pending`) as the integration point for a future backend push. Nothing reads them as a precondition today.
+- **No sync precondition on smena close**: `close_smena` does not check `sync_status`; a shift can always be closed locally.
+
+---
+
 ## Key Milestone 1 Design Decisions
 - **Unified Sync Flag**: Avoided duplicate sync queues by relying directly on per-row `sync_status` in `transactions` and `expenses`.
 - **SQL-Level Cashier Isolation**: All transaction history and return operations enforce `WHERE cashier_id = ?` at the query execution level.

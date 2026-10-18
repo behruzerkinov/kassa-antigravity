@@ -8,4 +8,3 @@ pub mod receipts;
 pub mod expenses;
 pub mod printing;
 pub mod settings;
-pub mod sync;

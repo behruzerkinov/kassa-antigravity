@@ -68,9 +68,6 @@ pub fn run() {
             
             settings::get_all_settings,
             settings::update_setting,
-            
-            sync::get_sync_status,
-            sync::retry_failed_sync,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
