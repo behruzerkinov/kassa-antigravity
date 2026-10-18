@@ -62,7 +62,11 @@ fn row_to_product(row: &rusqlite::Row) -> rusqlite::Result<Product> {
 }
 
 fn query_products(conn: &Connection, where_sql: &str, params: &[&dyn rusqlite::ToSql]) -> Result<Vec<Product>, String> {
-    let sql = format!("SELECT {} FROM products WHERE deleted_at IS NULL AND ({})", PRODUCT_COLUMNS, where_sql);
+    query_products_ordered(conn, where_sql, "", params)
+}
+
+fn query_products_ordered(conn: &Connection, where_sql: &str, suffix: &str, params: &[&dyn rusqlite::ToSql]) -> Result<Vec<Product>, String> {
+    let sql = format!("SELECT {} FROM products WHERE deleted_at IS NULL AND ({}) {}", PRODUCT_COLUMNS, where_sql, suffix);
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     let rows = stmt.query_map(params, row_to_product).map_err(|e| e.to_string())?;
     Ok(rows.flatten().collect())
@@ -97,7 +101,7 @@ fn validate(conn: &Connection, input: &ProductInput, exclude_id: Option<i64>) ->
 pub fn search_products(query: String, state: State<'_, DbState>) -> Result<Vec<Product>, String> {
     let conn = state.pool.get().map_err(|e| e.to_string())?;
     let like_query = format!("%{}%", query.trim());
-    query_products(&conn, "name LIKE ?1 OR barcode LIKE ?1 OR code LIKE ?1 ORDER BY name LIMIT 50", &[&like_query])
+    query_products_ordered(&conn, "name LIKE ?1 OR barcode LIKE ?1 OR code LIKE ?1", "ORDER BY name LIMIT 50", &[&like_query])
 }
 
 #[tauri::command]
@@ -105,7 +109,7 @@ pub fn list_products(query: Option<String>, custom_only: bool, state: State<'_, 
     let conn = state.pool.get().map_err(|e| e.to_string())?;
     let like_query = format!("%{}%", query.unwrap_or_default().trim());
     let custom: i32 = if custom_only { 1 } else { 0 };
-    query_products(&conn, "(name LIKE ?1 OR IFNULL(barcode, '') LIKE ?1 OR IFNULL(code, '') LIKE ?1) AND (?2 = 0 OR is_custom = 1) ORDER BY name LIMIT 200", &[&like_query, &custom])
+    query_products_ordered(&conn, "(name LIKE ?1 OR IFNULL(barcode, '') LIKE ?1 OR IFNULL(code, '') LIKE ?1) AND (?2 = 0 OR is_custom = 1)", "ORDER BY name LIMIT 200", &[&like_query, &custom])
 }
 
 #[tauri::command]

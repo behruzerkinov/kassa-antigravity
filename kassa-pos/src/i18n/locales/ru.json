@@ -37,7 +37,9 @@
     "numbered": "Корзина {n}",
     "add_items_hint": "Добавьте товары в корзину",
     "receipt_discount": "Скидка на чек",
-    "parked": "Отложено"
+    "parked": "Отложено",
+    "parked_list": "Отложенные",
+    "no_parked": "Нет отложенных корзин"
   },
   "products": {
     "title": "Товары",

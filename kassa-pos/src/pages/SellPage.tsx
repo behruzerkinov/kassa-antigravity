@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation, errorMessage } from '../i18n/i18nContext';
 import { Numpad } from '../components/Numpad';
+import { ParkedCartsDialog } from '../components/ParkedCartsDialog';
 import { Spinner } from '../components/ui/Spinner';
 import { useDebouncedSearch } from '../hooks/useDebounce';
 import { productApi, type Product } from '../stores/productStore';
@@ -22,6 +23,7 @@ export function SellPage() {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const scannerRef = useRef<HTMLInputElement>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [parkedOpen, setParkedOpen] = useState(false);
   const { results: searchResults, loading: searchLoading } = useDebouncedSearch(search, (q) =>
     q.trim() ? productApi.search(q.trim()) : Promise.resolve([] as Product[]));
 
@@ -238,6 +240,9 @@ export function SellPage() {
           <Button variant="outline" className="flex-1 h-14 text-lg" onClick={() => parkCart(t('cart.parked'))}>
             {t('cart.park')}
           </Button>
+          <Button variant="outline" className="flex-1 h-14 text-lg" onClick={() => setParkedOpen(true)}>
+            {t('cart.parked_list')}
+          </Button>
           <Button variant="outline" className="flex-1 h-14 text-lg text-danger hover:bg-danger hover:text-white" onClick={handleClear}>
             {t('cart.clear')}
           </Button>
@@ -255,6 +260,7 @@ export function SellPage() {
       {isPaymentOpen && (
         <PaymentModal onClose={() => setIsPaymentOpen(false)} cart={activeCart} />
       )}
+      {parkedOpen && <ParkedCartsDialog onClose={() => setParkedOpen(false)} />}
     </div>
     </div>
   );

@@ -37,7 +37,9 @@
     "numbered": "Savat {n}",
     "add_items_hint": "Savatga mahsulot qo'shing",
     "receipt_discount": "Chekka chegirma",
-    "parked": "Kechiktirilgan"
+    "parked": "Kechiktirilgan",
+    "parked_list": "Kechiktirilganlar",
+    "no_parked": "Kechiktirilgan savatlar yo'q"
   },
   "products": {
     "title": "Mahsulotlar",
