@@ -87,7 +87,7 @@ pub fn add_to_cart(token: String, cart_id: i64, barcode: String, state: State<'_
     }
 
     let p = conn.query_row(
-        "SELECT id, name, price, stock_qty, is_weighted FROM products WHERE barcode LIKE ?1 LIMIT 1",
+        "SELECT id, name, price, stock_qty, is_weighted FROM products WHERE barcode LIKE ?1 AND deleted_at IS NULL LIMIT 1",
         rusqlite::params![format!("{}%", search_barcode)],
         |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?, row.get::<_, f64>(2)?, row.get::<_, f64>(3)?, row.get::<_, i32>(4)? == 1))
     ).map_err(|_| "Товар не найден".to_string())?;
@@ -139,6 +139,66 @@ pub fn add_to_cart(token: String, cart_id: i64, barcode: String, state: State<'_
     Ok(CartItem {
         id: new_item_id, cart_id, product_id: Some(product_id), barcode: Some(barcode), name, price, qty, weight, discount_type: None, discount_value: None, final_price, is_weighted: is_w
     })
+}
+
+/// Adds a product by id (numpad / quick sell), merging with an existing line for the same product.
+#[tauri::command]
+pub fn add_product_to_cart(token: String, cart_id: i64, product_id: i64, qty: f64, state: State<'_, DbState>) -> Result<CartItem, String> {
+    let conn = state.pool.get().map_err(|e| e.to_string())?;
+    let _ = get_session_cashier(&conn, &token)?;
+    if qty <= 0.0 { return Err("invalid_number".into()); }
+
+    let (barcode, name, price, stock_qty, is_w): (Option<String>, String, f64, f64, bool) = conn.query_row(
+        "SELECT barcode, name, price, stock_qty, is_weighted FROM products WHERE id = ?1 AND deleted_at IS NULL",
+        rusqlite::params![product_id],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get::<_, i32>(4)? == 1))
+    ).map_err(|_| "Товар не найден".to_string())?;
+
+    let existing: Option<(i64, f64)> = conn.query_row(
+        "SELECT id, qty FROM cart_items WHERE cart_id = ?1 AND product_id = ?2",
+        rusqlite::params![cart_id, product_id],
+        |r| Ok((r.get(0)?, r.get(1)?))
+    ).ok();
+
+    let new_qty = existing.map(|(_, q)| q).unwrap_or(0.0) + qty;
+    if new_qty > stock_qty && !is_w { return Err("Нет в наличии".into()); }
+
+    let item_id = match existing {
+        Some((item_id, _)) => {
+            conn.execute("UPDATE cart_items SET qty = ?1 WHERE id = ?2", rusqlite::params![new_qty, item_id]).map_err(|e| e.to_string())?;
+            item_id
+        }
+        None => {
+            conn.execute(
+                "INSERT INTO cart_items (cart_id, product_id, barcode, name, price, qty, final_price, is_weighted) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                rusqlite::params![cart_id, product_id, barcode, name, price, new_qty, price * new_qty, if is_w {1} else {0}]
+            ).map_err(|e| e.to_string())?;
+            conn.last_insert_rowid()
+        }
+    };
+    recompute_item_final_price(&conn, item_id)?;
+    conn.execute("UPDATE carts SET updated_at = ?1 WHERE id = ?2", rusqlite::params![Utc::now().to_rfc3339(), cart_id]).ok();
+
+    conn.query_row(
+        "SELECT id, cart_id, product_id, barcode, name, price, qty, weight, discount_type, discount_value, final_price, is_weighted FROM cart_items WHERE id = ?1",
+        rusqlite::params![item_id],
+        |r| Ok(CartItem { id: r.get(0)?, cart_id: r.get(1)?, product_id: r.get(2)?, barcode: r.get(3)?, name: r.get(4)?, price: r.get(5)?, qty: r.get(6)?, weight: r.get(7)?, discount_type: r.get(8)?, discount_value: r.get(9)?, final_price: r.get(10)?, is_weighted: r.get::<_, i32>(11)? == 1 })
+    ).map_err(|e| e.to_string())
+}
+
+fn recompute_item_final_price(conn: &rusqlite::Connection, item_id: i64) -> Result<(), String> {
+    let (price, qty, dt, dv): (f64, f64, Option<String>, Option<f64>) = conn.query_row(
+        "SELECT price, qty, discount_type, discount_value FROM cart_items WHERE id = ?1",
+        rusqlite::params![item_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+    ).map_err(|e| e.to_string())?;
+    let mut final_price = price * qty;
+    match (dt.as_deref(), dv) {
+        (Some("percentage"), Some(v)) => final_price *= 1.0 - v / 100.0,
+        (Some("fixed"), Some(v)) => final_price -= v,
+        _ => {}
+    }
+    conn.execute("UPDATE cart_items SET final_price = ?1 WHERE id = ?2", rusqlite::params![final_price, item_id]).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]

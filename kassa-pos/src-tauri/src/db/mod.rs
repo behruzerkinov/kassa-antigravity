@@ -21,6 +21,7 @@ pub fn init_db(app_data_dir: &Path) -> Pool<SqliteConnectionManager> {
 
     let conn = pool.get().expect("Failed to get connection from pool");
     run_schema(&conn);
+    run_migrations(&conn);
     seed_db(&conn);
 
     pool
@@ -143,6 +144,29 @@ fn run_schema(conn: &Connection) {
         );
     ";
     conn.execute_batch(schema).expect("Failed to create schema");
+}
+
+fn add_column_if_missing(conn: &Connection, table: &str, column: &str, decl: &str) {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", table)).expect("table_info");
+    let exists = stmt.query_map([], |r| r.get::<_, String>(1)).expect("table_info").flatten().any(|c| c == column);
+    if !exists {
+        conn.execute(&format!("ALTER TABLE {} ADD COLUMN {} {}", table, column, decl), []).expect("Failed to add column");
+    }
+}
+
+fn run_migrations(conn: &Connection) {
+    add_column_if_missing(conn, "products", "code", "TEXT");
+    add_column_if_missing(conn, "products", "cost_price", "REAL");
+    add_column_if_missing(conn, "products", "wholesale_price", "REAL");
+    add_column_if_missing(conn, "products", "is_custom", "INTEGER NOT NULL DEFAULT 0");
+    add_column_if_missing(conn, "products", "deleted_at", "TEXT");
+    conn.execute_batch(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_products_code ON products(code) WHERE code IS NOT NULL AND deleted_at IS NULL;
+         CREATE TABLE IF NOT EXISTS quick_sell (
+             product_id INTEGER PRIMARY KEY REFERENCES products(id),
+             position INTEGER NOT NULL
+         );"
+    ).expect("Failed to run migrations");
 }
 
 fn seed_db(conn: &Connection) {

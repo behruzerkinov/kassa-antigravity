@@ -5,17 +5,85 @@
     "password": "Parol",
     "submit": "Kirish"
   },
+  "titlebar": {
+    "title": "Kassa"
+  },
+  "smena": {
+    "title": "Smena",
+    "open": "Smenani ochish",
+    "close": "Smenani yopish",
+    "x_report": "X-hisobot",
+    "is_open": "Smena ochiq",
+    "closed": "Smena yopiq",
+    "opened_at": "Ochilgan vaqti",
+    "cannot_close_unprocessed": "Yopib bo'lmaydi — o'tkazilmagan savdolar bor"
+  },
   "cart": {
     "title": "Savat",
-    "product": "Tovar",
+    "product": "Mahsulot",
     "price": "Narx",
-    "qty": "Miqdor",
+    "qty": "Soni",
     "total": "Jami",
     "clear": "Tozalash",
     "remove": "O'chirish",
-    "park": "Qoldirish",
-    "resume": "Davom etish",
-    "discount": "Chegirma"
+    "park": "Kechiktirish",
+    "resume": "Davom ettirish",
+    "discount": "Chegirma",
+    "discount_percent": "Chegirma %",
+    "discount_amount": "Chegirma summasi",
+    "current": "Joriy savat",
+    "items_count": "Mahsulotlar: {n}",
+    "empty": "Savat bo'sh",
+    "numbered": "Savat {n}",
+    "add_items_hint": "Savatga mahsulot qo'shing",
+    "receipt_discount": "Chekka chegirma",
+    "parked": "Kechiktirilgan",
+    "parked_list": "Kechiktirilganlar",
+    "no_parked": "Kechiktirilgan savatlar yo'q"
+  },
+  "products": {
+    "title": "Mahsulotlar",
+    "search": "Mahsulot qidirish",
+    "scan": "Shtrix-kodni skanerlang",
+    "not_found": "Mahsulot topilmadi",
+    "out_of_stock": "Mavjud emas",
+    "new": "Yangi mahsulot",
+    "edit": "Tahrirlash",
+    "name": "Nomi",
+    "category": "Toifa",
+    "unit": "O'lchov birligi",
+    "barcode": "Shtrix-kod",
+    "code": "Mahsulot kodi",
+    "quantity": "Miqdori",
+    "retail_price": "Chakana narx",
+    "cost_price": "Tannarx",
+    "wholesale_price": "Ulgurji narx",
+    "expiry_date": "Yaroqlilik muddati",
+    "vat": "QQS, %",
+    "custom": "O'zimniki",
+    "custom_only": "Faqat o'z mahsulotlarim",
+    "saved": "Mahsulot saqlandi",
+    "deleted": "Mahsulot o'chirildi",
+    "delete_confirm": "«{name}» mahsulotini o'chirasizmi?"
+  },
+  "quick_sell": {
+    "title": "Tez sotish",
+    "empty": "Tez sotish ro'yxati bo'sh",
+    "configure": "Ro'yxatni sozlash",
+    "search_to_add": "Qo'shish uchun mahsulot qidiring",
+    "add": "Qo'shish",
+    "up": "Yuqoriga",
+    "down": "Pastga"
+  },
+  "numpad": {
+    "code": "Kod",
+    "qty": "Soni",
+    "hint": "Kod yoki shtrix-kodni kiriting",
+    "not_found": "Topilmadi",
+    "clear": "Tozalash",
+    "clear_short": "T",
+    "backspace": "O'chirish",
+    "add": "Savatga qo'shish"
   },
   "payment": {
     "title": "To'lov",
@@ -23,11 +91,120 @@
     "card": "Karta",
     "split": "Bo'lish",
     "debt": "Qarz",
+    "tendered": "Berildi",
+    "change": "Qaytim",
     "submit": "To'lash",
-    "due": "To'lov uchun"
+    "due": "To'lanishi kerak"
+  },
+  "debt": {
+    "title": "Qarz summasi",
+    "client": "Mijoz",
+    "search_client": "Mijoz qidirish",
+    "new_client": "Yangi mijoz",
+    "name": "Ism",
+    "phone": "Telefon",
+    "balance": "Balans",
+    "debt": "Qarz",
+    "pay_debt": "Qarzni to'lash",
+    "amount": "Summa"
+  },
+  "returns": {
+    "title": "Qaytarish",
+    "full": "To'liq qaytarish",
+    "partial": "Qisman qaytarish",
+    "select_items": "Mahsulotlarni tanlang"
+  },
+  "receipts": {
+    "title": "Cheklar",
+    "search": "Qidirish",
+    "date_from": "Sanadan",
+    "date_to": "Sanagacha",
+    "print": "Chop etish",
+    "reprint": "Qayta chop etish",
+    "status": "Holat",
+    "refresh": "Yangilash",
+    "empty": "Cheklar yo'q",
+    "receipt_no": "Chek #{id}"
+  },
+  "receipt_statuses": {
+    "success": "Muvaffaqiyatli",
+    "discounted": "Chegirma bilan",
+    "debt_added": "Qarz qo'shildi",
+    "debt_paid": "Qarz to'landi",
+    "partial_return": "Qisman qaytarish",
+    "full_return": "To'liq qaytarish",
+    "error": "Xato"
   },
   "settings": {
     "title": "Sozlamalar",
-    "language": "Til"
+    "language": "Til",
+    "select_language": "Tilni tanlang",
+    "printer": "Printer",
+    "auto_print": "Avtomatik chop etish",
+    "lock_time": "Bloklash vaqti",
+    "never": "Hech qachon",
+    "minutes": "{n} daq.",
+    "auto_start": "Avtoishga tushish",
+    "update": "Yangilanish",
+    "check_updates": "Yangilanishlarni tekshirish",
+    "scale_prefixes": "Tortiladigan mahsulot prefikslari",
+    "scale_prefixes_placeholder": "Masalan: 21, 22"
+  },
+  "printing": {
+    "refresh": "Printerlar ro'yxatini yangilash",
+    "refreshing": "Printerlar qidirilmoqda...",
+    "press_refresh": "Printerlarni topish uchun «Yangilash»ni bosing",
+    "no_printers": "Printerlar topilmadi",
+    "none": "Tanlanmagan",
+    "saved": "Asosiy printer: {name}",
+    "silent_ready": "Ovozsiz chop etishga tayyor: {name}",
+    "select_default": "Asosiy printerni tanlang",
+    "missing_title": "Printer mavjud emas",
+    "missing_desc": "«{name}» printeri topilmadi. Chek saqlandi — uni «Cheklar» bo'limidan chop etish mumkin."
+  },
+  "lock": {
+    "locked": "Ekran bloklangan",
+    "unlock": "Blokdan chiqarish"
+  },
+  "expenses": {
+    "title": "Xarajat",
+    "type": "Xarajat turi",
+    "select_type": "Xarajat turini tanlang",
+    "amount": "Summa",
+    "note": "Izoh",
+    "add": "Xarajat qo'shish",
+    "saved": "Xarajat saqlandi"
+  },
+  "general": {
+    "save": "Saqlash",
+    "cancel": "Bekor qilish",
+    "confirm": "Tasdiqlash",
+    "yes": "Ha",
+    "no": "Yo'q",
+    "close": "Yopish",
+    "loading": "Yuklanmoqda...",
+    "error": "Xato",
+    "success": "Muvaffaqiyatli"
+  },
+  "x_report": {
+    "total_cash": "Jami naqd",
+    "total_card": "Jami karta",
+    "returns": "Qaytarishlar",
+    "expenses": "Xarajatlar",
+    "debt_sales": "Qarzga savdo",
+    "sales_count": "Savdolar soni",
+    "is_open": "Smena ochiq"
+  },
+  "errors": {
+    "barcode_exists": "Bunday shtrix-kodli mahsulot mavjud",
+    "code_exists": "Bunday kodli mahsulot mavjud",
+    "name_required": "Mahsulot nomini kiriting",
+    "invalid_number": "Noto'g'ri son",
+    "quick_sell_limit": "Eng ko'pi bilan 24 ta mahsulot",
+    "not_custom": "Faqat o'z mahsulotlaringizni o'zgartirish mumkin",
+    "product_not_found": "Mahsulot topilmadi",
+    "printer_query_failed": "Printerlar ro'yxatini olib bo'lmadi",
+    "Товар не найден": "Mahsulot topilmadi",
+    "Нет в наличии": "Mavjud emas"
   }
 }

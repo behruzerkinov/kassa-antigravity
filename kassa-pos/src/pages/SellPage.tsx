@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useTranslation } from '../i18n/i18nContext';
+import { useTranslation, errorMessage } from '../i18n/i18nContext';
+import { Numpad } from '../components/Numpad';
+import { ParkedCartsDialog } from '../components/ParkedCartsDialog';
+import { Spinner } from '../components/ui/Spinner';
+import { useDebouncedSearch } from '../hooks/useDebounce';
+import { productApi, type Product } from '../stores/productStore';
+import { toast } from '../stores/toastStore';
+import { printAfterSale } from '../lib/printing';
 import { useCartStore } from '../stores/cartStore';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -10,11 +17,25 @@ import { useAuthStore } from '../stores/authStore';
 
 export function SellPage() {
   const { t } = useTranslation();
-  const { carts, activeCartIndex, activeCart, setActiveTab, createCart, addToCart, updateItemQty, removeItem, clearCart, parkCart } = useCartStore();
+  const { carts, activeCartIndex, activeCart, setActiveTab, createCart, addToCart, addProductById, updateItemQty, removeItem, clearCart, parkCart } = useCartStore();
   const [barcode, setBarcode] = useState('');
   const [search, setSearch] = useState('');
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const scannerRef = useRef<HTMLInputElement>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [parkedOpen, setParkedOpen] = useState(false);
+  const { results: searchResults, loading: searchLoading } = useDebouncedSearch(search, (q) =>
+    q.trim() ? productApi.search(q.trim()) : Promise.resolve([] as Product[]));
+
+  const addFromSearch = async (p: Product) => {
+    try {
+      await addProductById(p.id, 1);
+      setSearch('');
+      setSearchOpen(false);
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    }
+  };
 
   useEffect(() => {
     if (carts.length === 0) {
@@ -34,9 +55,9 @@ export function SellPage() {
     try {
       await addToCart(barcode.trim());
       setBarcode('');
-    } catch (err: any) {
-      console.error(err);
-      // Handle error (e.g., show toast)
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+      setBarcode('');
     }
   };
 
@@ -72,7 +93,7 @@ export function SellPage() {
       const token = useAuthStore.getState().token;
       const cashAmount = method === 'cash' ? activeCart.total : 0;
       const cardAmount = method === 'card' ? activeCart.total : 0;
-      await invoke('process_payment', {
+      const tx = await invoke<{ id: number }>('process_payment', {
         token,
         cartId: activeCart.id,
         cashAmount,
@@ -81,13 +102,16 @@ export function SellPage() {
         debtAmount: 0,
       });
       await useCartStore.getState().refreshCarts();
+      await printAfterSale(tx.id);
     } catch (err) {
-      console.error(err);
+      toast(errorMessage(err), 'error');
     }
   };
 
   return (
-    <div className="flex flex-col h-full bg-surface">
+    <div className="flex h-full bg-surface">
+      <Numpad />
+    <div className="flex flex-col flex-1 min-w-0 h-full">
       {/* Top Section */}
       <div className="p-4 border-b border-border flex flex-col gap-2">
         <div className="flex gap-4">
@@ -100,12 +124,29 @@ export function SellPage() {
               autoFocus
             />
           </form>
-          <div className="flex-1">
+          <div className="flex-1 relative">
             <Input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }}
               placeholder={t('products.search') + '...'}
+              data-testid="manual-search"
             />
+            {searchLoading && search && <Spinner className="absolute right-3 top-3" />}
+            {searchOpen && search.trim() && searchResults.length > 0 && (
+              <div className="absolute z-20 mt-1 w-full rounded-md border border-border bg-surface shadow-lg">
+                <div className="flex justify-end border-b border-border p-1">
+                  <Button variant="outline" className="h-11 w-11 p-0" aria-label={t('general.close')} onClick={() => setSearchOpen(false)}>✕</Button>
+                </div>
+                <div className="max-h-72 overflow-auto">
+                  {searchResults.map((p) => (
+                    <button key={p.id} className="w-full min-h-12 px-3 text-left flex justify-between items-center border-b border-border last:border-0 hover:bg-surface-raised" onClick={() => addFromSearch(p)}>
+                      <span className="truncate pr-2">{p.name}</span>
+                      <span className="tabular-nums font-medium">{formatPrice(p.price)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -122,7 +163,7 @@ export function SellPage() {
                   : "bg-surface-raised text-ink hover:bg-border/50"
               )}
             >
-              {cart.name || `Корзина ${idx + 1}`}
+              {cart.name || t('cart.numbered').replace('{n}', String(idx + 1))}
               <span className="bg-black/20 px-1.5 py-0.5 rounded-full text-xs">
                 {cart.items.length}
               </span>
@@ -142,7 +183,7 @@ export function SellPage() {
       <div className="flex-1 overflow-auto p-4">
         {!activeCart || activeCart.items.length === 0 ? (
           <div className="h-full flex items-center justify-center text-ink-muted">
-            Добавьте товары в корзину
+            {t('cart.add_items_hint')}
           </div>
         ) : (
           <div className="w-full">
@@ -195,9 +236,12 @@ export function SellPage() {
         </div>
 
         <div className="flex gap-4">
-          <Button variant="outline" className="flex-1 h-14 text-lg">Скидка на чек</Button>
-          <Button variant="outline" className="flex-1 h-14 text-lg" onClick={() => parkCart('Отложено')}>
+          <Button variant="outline" className="flex-1 h-14 text-lg">{t('cart.receipt_discount')}</Button>
+          <Button variant="outline" className="flex-1 h-14 text-lg" onClick={() => parkCart(t('cart.parked'))}>
             {t('cart.park')}
+          </Button>
+          <Button variant="outline" className="flex-1 h-14 text-lg" onClick={() => setParkedOpen(true)}>
+            {t('cart.parked_list')}
           </Button>
           <Button variant="outline" className="flex-1 h-14 text-lg text-danger hover:bg-danger hover:text-white" onClick={handleClear}>
             {t('cart.clear')}
@@ -216,6 +260,8 @@ export function SellPage() {
       {isPaymentOpen && (
         <PaymentModal onClose={() => setIsPaymentOpen(false)} cart={activeCart} />
       )}
+      {parkedOpen && <ParkedCartsDialog onClose={() => setParkedOpen(false)} />}
+    </div>
     </div>
   );
 }

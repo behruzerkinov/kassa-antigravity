@@ -29,6 +29,7 @@ interface CartState {
   activeCart: CartWithItems | null;
   createCart: () => Promise<void>;
   addToCart: (barcode: string) => Promise<void>;
+  addProductById: (productId: number, qty: number) => Promise<void>;
   updateItemQty: (itemId: number, qty: number) => Promise<void>;
   removeItem: (itemId: number) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -90,6 +91,13 @@ export const useCartStore = create<CartState>((set, get) => ({
     const activeCart = get().activeCart;
     if (!activeCart) return;
     await invoke('add_to_cart', { token: getToken(), cartId: activeCart.id, barcode });
+    await get().refreshCarts();
+  },
+  addProductById: async (productId, qty) => {
+    if (!get().activeCart) await get().createCart();
+    const activeCart = get().activeCart;
+    if (!activeCart) return;
+    await invoke('add_product_to_cart', { token: getToken(), cartId: activeCart.id, productId, qty });
     await get().refreshCarts();
   },
   updateItemQty: async (itemId, qty) => {
