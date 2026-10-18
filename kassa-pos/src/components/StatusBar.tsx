@@ -19,7 +19,7 @@ export function StatusBar() {
       <div className="flex items-center gap-4" />
 
       <div className="flex items-center gap-2">
-        <span>{openSmena ? t('smena.is_open') : 'Смена закрыта'}</span>
+        <span>{openSmena ? t('smena.is_open') : t('smena.closed')}</span>
       </div>
 
       <div className="tabular-nums font-medium">

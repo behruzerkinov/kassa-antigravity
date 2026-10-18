@@ -6,6 +6,9 @@ import { useTranslation } from '../i18n/i18nContext';
 import { SellPage } from '../pages/SellPage';
 import { ReceiptsPanel } from '../components/ReceiptsPanel';
 import { SettingsPanel } from '../components/SettingsPanel';
+import { ProductsPanel } from '../components/ProductsPanel';
+import { QuickSellGrid } from '../components/QuickSellGrid';
+import { formatPrice } from '../lib/utils';
 import { SmenaControls } from '../components/SmenaControls';
 import { useCartStore } from '../stores/cartStore';
 
@@ -32,34 +35,44 @@ export function AppLayout() {
         </div>
 
         {/* Right side panel */}
-        <div className="w-80 flex flex-col bg-surface-raised z-0">
+        <div className="w-96 flex flex-col bg-surface-raised z-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <div className="p-2 border-b border-border">
-              <TabsList className="w-full grid grid-cols-3">
+              <TabsList className="w-full grid grid-cols-4">
                 <TabsTrigger value="cart">{t('cart.title')}</TabsTrigger>
+                <TabsTrigger value="products">{t('products.title')}</TabsTrigger>
                 <TabsTrigger value="receipts">{t('receipts.title')}</TabsTrigger>
                 <TabsTrigger value="settings">{t('settings.title')}</TabsTrigger>
               </TabsList>
             </div>
             
             <div className="flex-1 overflow-hidden">
-              <TabsContent value="cart" className="mt-0 h-full overflow-auto">
-                {activeCart ? (
+              <TabsContent value="cart" className="mt-0 h-full overflow-auto flex flex-col">
+                <div className="flex-1">
+                {activeCart && activeCart.items.length > 0 ? (
                   <div className="p-4 space-y-2">
-                    <h3 className="font-medium text-ink">{activeCart.name || 'Текущая корзина'}</h3>
-                    <div className="text-sm text-ink-muted mb-4">{activeCart.items.length} товаров</div>
+                    <h3 className="font-medium text-ink">{activeCart.name || t('cart.current')}</h3>
+                    <div className="text-sm text-ink-muted mb-4">{t('cart.items_count').replace('{n}', String(activeCart.items.length))}</div>
                     {activeCart.items.map((item, idx) => (
                       <div key={idx} className="flex justify-between text-sm py-1 border-b border-border">
                         <span className="truncate pr-2">{item.name}</span>
-                        <span className="font-medium tabular-nums">{item.qty} x {item.price}</span>
+                        <span className="font-medium tabular-nums">{item.qty} x {formatPrice(item.price)}</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-ink-muted text-sm">
-                    Корзина пуста
+                  <div className="p-8 flex items-center justify-center text-ink-muted text-sm">
+                    {t('cart.empty')}
                   </div>
                 )}
+                </div>
+                <div className="p-3 border-t border-border">
+                  <h4 className="text-sm font-medium text-ink-muted mb-2">{t('quick_sell.title')}</h4>
+                  <QuickSellGrid compact />
+                </div>
+              </TabsContent>
+              <TabsContent value="products" className="mt-0 h-full overflow-hidden">
+                <ProductsPanel />
               </TabsContent>
               <TabsContent value="receipts" className="mt-0 h-full overflow-hidden">
                 <ReceiptsPanel />

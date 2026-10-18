@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from '../i18n/i18nContext';
+import { useTranslation, errorMessage } from '../i18n/i18nContext';
+import { useDebouncedSearch } from '../hooks/useDebounce';
+import { Spinner } from '../components/ui/Spinner';
+import { toast } from '../stores/toastStore';
+import { printAfterSale } from '../lib/printing';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/Dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs';
 import { Button } from '../components/ui/Button';
@@ -44,7 +48,10 @@ export function PaymentModal({ onClose, cart }: PaymentModalProps) {
 
   // Debt state
   const [clientSearch, setClientSearch] = useState('');
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clientsHidden, setClientsHidden] = useState(false);
+  const { results: clientResults, loading: clientsLoading } = useDebouncedSearch(clientSearch, (q) =>
+    q.trim().length < 2 ? Promise.resolve([] as Client[]) : invoke<Client[]>('search_clients', { query: q.trim() }));
+  const clients = clientsHidden ? [] : clientResults;
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [debtAmountStr, setDebtAmountStr] = useState(total.toString());
   const debtAmount = parseFloat(debtAmountStr) || 0;
@@ -66,14 +73,6 @@ export function PaymentModal({ onClose, cart }: PaymentModalProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const searchClients = async (query: string) => {
-    if (query.length < 2) { setClients([]); return; }
-    try {
-      const results = await invoke<Client[]>('search_clients', { query });
-      setClients(results);
-    } catch { setClients([]); }
-  };
-
   const createNewClient = async () => {
     if (!newClientName.trim()) return;
     try {
@@ -85,14 +84,14 @@ export function PaymentModal({ onClose, cart }: PaymentModalProps) {
       setShowNewClient(false);
       setNewClientName('');
       setNewClientPhone('');
-    } catch (err) { console.error(err); }
+    } catch (err) { toast(errorMessage(err), 'error'); }
   };
 
   const processPayment = async (cashAmount: number, cardAmount: number, debtAmt: number = 0, clientId: number | null = null) => {
     if (!cart) return;
     try {
       const token = useAuthStore.getState().token;
-      await invoke('process_payment', {
+      const tx = await invoke<{ id: number }>('process_payment', {
         token,
         cartId: cart.id,
         cashAmount,
@@ -102,8 +101,9 @@ export function PaymentModal({ onClose, cart }: PaymentModalProps) {
       });
       await refreshCarts();
       onClose();
+      await printAfterSale(tx.id);
     } catch (err) {
-      console.error(err);
+      toast(errorMessage(err), 'error');
     }
   };
 
@@ -209,24 +209,32 @@ export function PaymentModal({ onClose, cart }: PaymentModalProps) {
                   {/* Client search */}
                   <div>
                     <label className="text-sm font-medium mb-1 block">{t('debt.search_client')}</label>
-                    <Input
-                      value={clientSearch}
-                      onChange={(e) => { setClientSearch(e.target.value); searchClients(e.target.value); }}
-                      placeholder={t('debt.search_client') + '...'}
-                    />
+                    <div className="relative">
+                      <Input
+                        value={clientSearch}
+                        onChange={(e) => { setClientSearch(e.target.value); setClientsHidden(false); }}
+                        placeholder={t('debt.search_client') + '...'}
+                      />
+                      {clientsLoading && <Spinner className="absolute right-3 top-3" />}
+                    </div>
                   </div>
 
                   {/* Search results */}
                   {clients.length > 0 && !selectedClient && (
-                    <div className="border border-border rounded-lg max-h-32 overflow-auto">
+                    <div className="border border-border rounded-lg">
+                      <div className="flex justify-end border-b border-border p-1">
+                        <Button variant="outline" className="h-11 w-11 p-0" aria-label={t('general.close')} onClick={() => setClientsHidden(true)}>✕</Button>
+                      </div>
+                      <div className="max-h-40 overflow-auto">
                       {clients.map((c) => (
-                        <button key={c.id} className="w-full text-left px-3 py-2 hover:bg-surface-raised border-b border-border last:border-0 flex justify-between" onClick={() => { setSelectedClient(c); setClients([]); }}>
+                        <button key={c.id} className="w-full text-left px-3 min-h-12 hover:bg-surface-raised border-b border-border last:border-0 flex justify-between items-center" onClick={() => { setSelectedClient(c); setClientsHidden(true); }}>
                           <span>{c.name} {c.phone && <span className="text-ink-muted">({c.phone})</span>}</span>
                           <span className={cn('tabular-nums font-medium', c.balance >= 0 ? 'text-success' : 'text-danger')}>
                             {c.balance >= 0 ? '+' : ''}{formatPrice(c.balance)}
                           </span>
                         </button>
                       ))}
+                      </div>
                     </div>
                   )}
 
@@ -260,7 +268,7 @@ export function PaymentModal({ onClose, cart }: PaymentModalProps) {
                             {selectedClient.balance >= 0 ? '+' : '−'}{formatPrice(Math.abs(selectedClient.balance))}
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedClient(null)}>✕</Button>
+                        <Button variant="ghost" className="h-11 w-11 p-0" aria-label={t('general.close')} onClick={() => setSelectedClient(null)}>✕</Button>
                       </div>
                     </div>
                   )}

@@ -18,6 +18,30 @@ interface I18nContextProps {
   setLocale: (locale: Locale) => void;
 }
 
+function lookup(locale: Locale, key: string): string {
+  for (const loc of [locale, 'ru' as Locale]) {
+    let value = translations[loc];
+    for (const k of key.split('.')) {
+      if (value === undefined || value === null) break;
+      value = value[k];
+    }
+    if (typeof value === 'string') return value;
+  }
+  return key;
+}
+
+/** Translate outside React components (stores, helpers). */
+export function translate(key: string): string {
+  return lookup((useSettingsStore.getState().language as Locale) || 'ru', key);
+}
+
+/** Maps a backend error code (e.g. "barcode_exists") to a localized message. */
+export function errorMessage(e: unknown): string {
+  const raw = String(e);
+  const msg = translate(`errors.${raw}`);
+  return msg === `errors.${raw}` ? raw : msg;
+}
+
 const I18nContext = createContext<I18nContextProps | undefined>(undefined);
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
