@@ -52,7 +52,7 @@ export const useAuthStore = create<AuthState>()(
       },
       logout: async () => {
         try {
-          await invoke('logout');
+          await invoke('logout', { token: get().token });
         } catch (e) {
           console.error('Logout error', e);
         } finally {
@@ -85,7 +85,7 @@ export const useAuthStore = create<AuthState>()(
       },
       unlockScreen: async (password) => {
         try {
-          await invoke('unlock_screen', { password });
+          await invoke('unlock_screen', { token: get().token, password });
           set({ isLocked: false });
         } catch (e) {
           throw e;

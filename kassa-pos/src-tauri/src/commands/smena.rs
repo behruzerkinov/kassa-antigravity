@@ -39,11 +39,6 @@ pub fn close_smena(token: String, smena_id: i64, state: State<'_, DbState>) -> R
     let conn = state.pool.get().map_err(|e| e.to_string())?;
     let (cashier_id, _) = get_session_cashier(&conn, &token)?;
 
-    let pending: i64 = conn.query_row("SELECT COUNT(*) FROM transactions WHERE smena_id = ?1 AND sync_status = 'pending'", rusqlite::params![smena_id], |r| r.get(0)).unwrap_or(0);
-    if pending > 0 {
-        return Err("Cannot close smena with pending transactions".into());
-    }
-
     let now = Utc::now().to_rfc3339();
     conn.execute("UPDATE smenas SET closed_at = ?1, status = 'closed' WHERE id = ?2 AND cashier_id = ?3 AND status = 'open'", rusqlite::params![now, smena_id, cashier_id]).map_err(|e| e.to_string())?;
     Ok(())
