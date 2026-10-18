@@ -8,6 +8,12 @@ const getToken = () => {
   return token;
 };
 
+const getSmenaId = () => {
+  const smena = useAuthStore.getState().openSmena;
+  if (!smena) throw new Error('No open smena');
+  return smena.id;
+};
+
 interface SmenaState {
   openSmena: () => Promise<void>;
   closeSmena: () => Promise<void>;
@@ -20,10 +26,10 @@ export const useSmenaStore = create<SmenaState>((set) => ({
     useAuthStore.getState().setSmena(res);
   },
   closeSmena: async () => {
-    await invoke('close_smena', { token: getToken() });
+    await invoke('close_smena', { token: getToken(), smenaId: getSmenaId() });
     useAuthStore.getState().setSmena(null);
   },
   getXReport: async () => {
-    return await invoke('get_x_report', { token: getToken() });
+    return await invoke('get_x_report', { token: getToken(), smenaId: getSmenaId() });
   }
 }));
