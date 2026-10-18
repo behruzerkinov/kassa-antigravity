@@ -40,6 +40,37 @@ interface CartState {
   refreshCarts: () => Promise<void>;
 }
 
+interface RawCartItem {
+  id: number;
+  product_id: number;
+  barcode: string;
+  name: string;
+  price: number;
+  qty: number;
+  discount_type: string | null;
+  discount_value: number | null;
+  final_price: number;
+}
+
+interface RawCartWithItems {
+  cart: { id: number; name: string | null };
+  items: RawCartItem[];
+  total: number;
+}
+
+const toCartWithItems = ({ cart, items, total }: RawCartWithItems): CartWithItems => ({
+  id: cart.id,
+  name: cart.name ?? '',
+  items: items.map(({ discount_value, final_price, ...item }) => ({
+    ...item,
+    discount_val: discount_value,
+    total: final_price,
+  })),
+  total,
+  discount_type: null,
+  discount_val: null,
+});
+
 const getToken = () => {
   const token = useAuthStore.getState().token;
   if (!token) throw new Error('Not authenticated');
@@ -58,7 +89,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   addToCart: async (barcode) => {
     const activeCart = get().activeCart;
     if (!activeCart) return;
-    await invoke('add_cart_item', { token: getToken(), cartId: activeCart.id, barcode });
+    await invoke('add_to_cart', { token: getToken(), cartId: activeCart.id, barcode });
     await get().refreshCarts();
   },
   updateItemQty: async (itemId, qty) => {
@@ -93,17 +124,18 @@ export const useCartStore = create<CartState>((set, get) => ({
     });
   },
   applyItemDiscount: async (itemId, type, value) => {
-    await invoke('apply_item_discount', { token: getToken(), itemId, discountType: type, discountVal: value });
+    await invoke('apply_item_discount', { token: getToken(), itemId, discountType: type, value });
     await get().refreshCarts();
   },
   applyCartDiscount: async (type, value) => {
     const activeCart = get().activeCart;
     if (!activeCart) return;
-    await invoke('apply_cart_discount', { token: getToken(), cartId: activeCart.id, discountType: type, discountVal: value });
+    await invoke('apply_cart_discount', { token: getToken(), cartId: activeCart.id, discountType: type, value });
     await get().refreshCarts();
   },
   refreshCarts: async () => {
-    const carts = await invoke<CartWithItems[]>('get_active_carts', { token: getToken() });
+    const raw = await invoke<RawCartWithItems[]>('get_active_carts', { token: getToken() });
+    const carts = raw.map(toCartWithItems);
     let activeIndex = get().activeCartIndex;
     if (activeIndex >= carts.length) activeIndex = Math.max(0, carts.length - 1);
     
