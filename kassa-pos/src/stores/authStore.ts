@@ -1,14 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { invoke } from '@tauri-apps/api/core';
-
-export interface Smena {
-  id: number;
-  cashier_id: number;
-  opened_at: string;
-  closed_at: string | null;
-  status: 'open' | 'closed';
-}
+import { invoke } from '../lib/desktop';
+import type { LoginResponse, SessionInfo, Smena } from '../lib/types';
 
 interface AuthState {
   token: string | null;
@@ -34,27 +27,25 @@ export const useAuthStore = create<AuthState>()(
       isLocked: false,
       isAuthenticated: false,
       openSmena: null,
-      
+
       login: async (username, password) => {
-        try {
-          const res = await invoke<any>('login', { username, password });
-          set({
-            token: res.token,
-            cashierId: res.cashier_id,
-            cashierName: res.cashier_name,
-            isAuthenticated: true,
-            isLocked: false,
-            openSmena: res.open_smena || null
-          });
-        } catch (error) {
-          throw error;
-        }
+        const res = await invoke<LoginResponse>('login', { username, password });
+        set({
+          token: res.token,
+          cashierId: res.cashier_id,
+          cashierName: res.cashier_name,
+          isAuthenticated: true,
+          isLocked: false,
+          openSmena: res.open_smena ?? null,
+        });
       },
+
       logout: async () => {
+        const token = get().token;
         try {
-          await invoke('logout');
-        } catch (e) {
-          console.error('Logout error', e);
+          if (token) await invoke('logout', { token });
+        } catch (error) {
+          console.error('Logout error', error);
         } finally {
           set({
             token: null,
@@ -62,40 +53,49 @@ export const useAuthStore = create<AuthState>()(
             cashierName: null,
             isAuthenticated: false,
             isLocked: false,
-            openSmena: null
+            openSmena: null,
           });
         }
       },
+
       validateSession: async () => {
         const { token } = get();
         if (!token) return false;
         try {
-          const isValid = await invoke<boolean>('validate_session', { token });
-          if (!isValid) {
-            get().logout();
-          }
-          return isValid;
-        } catch (e) {
-          get().logout();
+          const session = await invoke<SessionInfo>('validate_session', { token });
+          set({
+            cashierId: session.cashier_id,
+            cashierName: session.cashier_name,
+            openSmena: session.open_smena ?? null,
+            isAuthenticated: true,
+            isLocked: session.is_locked ?? false,
+          });
+          return true;
+        } catch {
+          await get().logout();
           return false;
         }
       },
+
       lockScreen: async () => {
+        const token = get().token;
+        if (!token) return;
+        await invoke('lock_screen', { token });
         set({ isLocked: true });
       },
+
       unlockScreen: async (password) => {
-        try {
-          await invoke('unlock_screen', { password });
-          set({ isLocked: false });
-        } catch (e) {
-          throw e;
-        }
+        const token = get().token;
+        if (!token) throw new Error('Нет активной сессии');
+        await invoke('unlock_screen', { token, password });
+        set({ isLocked: false });
       },
-      setSmena: (smena) => set({ openSmena: smena })
+
+      setSmena: (smena) => set({ openSmena: smena }),
     }),
     {
       name: 'kassa-auth',
-      partialize: (state) => ({ token: state.token }), // only save token
-    }
-  )
+      partialize: (state) => ({ token: state.token }),
+    },
+  ),
 );

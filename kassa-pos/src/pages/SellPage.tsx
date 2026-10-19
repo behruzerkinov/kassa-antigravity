@@ -1,221 +1,712 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Archive,
+  Minus,
+  Percent,
+  Plus,
+  ScanLine,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { useTranslation } from '../i18n/i18nContext';
 import { useCartStore } from '../stores/cartStore';
+import { invoke, errorMessage } from '../lib/desktop';
+import type { CartItem, Product } from '../lib/types';
+import { formatPrice, formatQty, cn } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { PaymentModal } from './PaymentModal';
-import { formatPrice, cn } from '../lib/utils';
-import { invoke } from '@tauri-apps/api/core';
-import { useAuthStore } from '../stores/authStore';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/Dialog';
+import { DiscountDialog, type DiscountTarget } from '../components/DiscountDialog';
+import { useToast } from '../components/ui/toast-host';
+import type { PaymentMethod } from './PaymentModal';
 
-export function SellPage() {
+interface SellPageProps {
+  onRequestPayment: (method: PaymentMethod) => void;
+  onOpenShift: () => void;
+  noShift: boolean;
+}
+
+export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPageProps) {
   const { t } = useTranslation();
-  const { carts, activeCartIndex, activeCart, setActiveTab, createCart, addToCart, updateItemQty, removeItem, clearCart, parkCart } = useCartStore();
+  const { toast } = useToast();
+  const {
+    carts,
+    activeCart,
+    activeCartIndex,
+    parkedCarts,
+    setActiveTab,
+    createCart,
+    addToCart,
+    updateItemQty,
+    removeItem,
+    clearCart,
+    parkCart,
+    resumeCart,
+    applyItemDiscount,
+    applyCartDiscount,
+    refreshParkedCarts,
+  } = useCartStore();
+
   const [barcode, setBarcode] = useState('');
   const [search, setSearch] = useState('');
-  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [results, setResults] = useState<Product[]>([]);
+  const [quickProducts, setQuickProducts] = useState<Product[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [recentItemId, setRecentItemId] = useState<number | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<CartItem | null>(null);
+  const [clearOpen, setClearOpen] = useState(false);
+  const [parkOpen, setParkOpen] = useState(false);
+  const [parkName, setParkName] = useState('');
+  const [discountTarget, setDiscountTarget] = useState<DiscountTarget | null>(null);
+
   const scannerRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const focusScanner = useCallback(() => {
+    window.setTimeout(() => scannerRef.current?.focus(), 30);
+  }, []);
 
   useEffect(() => {
-    if (carts.length === 0) {
-      createCart();
-    }
-  }, [carts, createCart]);
+    focusScanner();
+  }, [activeCartIndex, focusScanner]);
 
   useEffect(() => {
-    if (scannerRef.current) {
-      scannerRef.current.focus();
-    }
-  }, [activeCartIndex, isPaymentOpen]);
-
-  const handleScannerSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!barcode.trim()) return;
-    try {
-      await addToCart(barcode.trim());
-      setBarcode('');
-    } catch (err: any) {
-      console.error(err);
-      // Handle error (e.g., show toast)
-    }
-  };
-
-  const handleClear = async () => {
-    if (confirm(t('cart.clear') + '?')) {
-      await clearCart();
-    }
-  };
+    invoke<Product[]>('search_products', { query: '' })
+      .then((list) => setQuickProducts(list.slice(0, 9)))
+      .catch(() => setQuickProducts([]));
+  }, []);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'F1') {
-        e.preventDefault();
-        if (activeCart && activeCart.total > 0) {
-          // Instant cash
-          handleInstantPayment('cash');
-        }
-      } else if (e.key === 'F2') {
-        e.preventDefault();
-        if (activeCart && activeCart.total > 0) {
-          // Instant card
-          handleInstantPayment('card');
-        }
+    const query = search.trim();
+    if (query.length < 2) {
+      setResults([]);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      invoke<Product[]>('search_products', { query })
+        .then((list) => {
+          setResults(list.slice(0, 8));
+          setSearchOpen(true);
+        })
+        .catch(() => setResults([]));
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'F1') {
+        event.preventDefault();
+        if (activeCart?.items.length) onRequestPayment('cash');
+      } else if (event.key === 'F2') {
+        event.preventDefault();
+        if (activeCart?.items.length) onRequestPayment('card');
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeCart]);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [activeCart, onRequestPayment]);
 
-  const handleInstantPayment = async (method: 'cash' | 'card') => {
-    if (!activeCart) return;
-    try {
-      const token = useAuthStore.getState().token;
-      const cashAmount = method === 'cash' ? activeCart.total : 0;
-      const cardAmount = method === 'card' ? activeCart.total : 0;
-      await invoke('process_payment', {
-        token,
-        cartId: activeCart.id,
-        cashAmount,
-        cardAmount,
-        clientId: null,
-        debtAmount: 0,
-      });
-      await useCartStore.getState().refreshCarts();
-    } catch (err) {
-      console.error(err);
+  const addProduct = useCallback(
+    async (code: string) => {
+      if (!activeCart) {
+        await createCart();
+      }
+      try {
+        setBusy(true);
+        const item = await addToCart(code);
+        setRecentItemId(item.id);
+        window.setTimeout(() => setRecentItemId((current) => (current === item.id ? null : current)), 260);
+        setBarcode('');
+        setSearch('');
+        setSearchOpen(false);
+        focusScanner();
+      } catch (error) {
+        toast({
+          title: t('sell.cannot_add'),
+          description: errorMessage(error),
+          variant: 'destructive',
+        });
+        scannerRef.current?.select();
+      } finally {
+        setBusy(false);
+      }
+    },
+    [activeCart, addToCart, createCart, focusScanner, t, toast],
+  );
+
+  const handleScan = (event: React.FormEvent) => {
+    event.preventDefault();
+    const code = barcode.trim();
+    if (!code) return;
+    void addProduct(code);
+  };
+
+  const handleSearchSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (results[0]?.barcode) {
+      void addProduct(results[0].barcode);
+    } else if (search.trim()) {
+      void addProduct(search.trim());
     }
+  };
+
+  const handleQty = async (item: CartItem, next: number) => {
+    if (next < 1) return;
+    try {
+      await updateItemQty(item.id, next);
+    } catch (error) {
+      toast({ title: t('sell.cannot_change'), description: errorMessage(error), variant: 'destructive' });
+    }
+  };
+
+  const confirmRemove = async () => {
+    if (!removeTarget) return;
+    try {
+      await removeItem(removeTarget.id);
+      toast({ title: t('sell.removed'), description: removeTarget.name });
+    } catch (error) {
+      toast({ title: t('general.error'), description: errorMessage(error), variant: 'destructive' });
+    } finally {
+      setRemoveTarget(null);
+      focusScanner();
+    }
+  };
+
+  const confirmClear = async () => {
+    try {
+      await clearCart();
+      toast({ title: t('sell.cleared') });
+    } catch (error) {
+      toast({ title: t('general.error'), description: errorMessage(error), variant: 'destructive' });
+    } finally {
+      setClearOpen(false);
+      focusScanner();
+    }
+  };
+
+  const submitPark = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const name = parkName.trim();
+    if (!name) return;
+    try {
+      await parkCart(name);
+      setParkOpen(false);
+      setParkName('');
+      toast({ title: t('sell.parked_success'), description: name });
+      focusScanner();
+    } catch (error) {
+      toast({ title: t('general.error'), description: errorMessage(error), variant: 'destructive' });
+    }
+  };
+
+  const openPark = async () => {
+    setParkOpen(true);
+    await refreshParkedCarts();
+  };
+
+  const resumeParked = async (id: number) => {
+    try {
+      await resumeCart(id);
+      setParkOpen(false);
+      focusScanner();
+    } catch (error) {
+      toast({ title: t('general.error'), description: errorMessage(error), variant: 'destructive' });
+    }
+  };
+
+  const items = activeCart?.items ?? [];
+  const total = activeCart?.total ?? 0;
+  const subtotal = useMemo(
+    () => items.reduce((sum, item) => sum + item.price * item.qty, 0),
+    [items],
+  );
+  const discount = subtotal - total;
+
+  const applyDiscount = async (type: 'percentage' | 'fixed' | null, value: number) => {
+    if (!discountTarget) return;
+    if (discountTarget.kind === 'cart') await applyCartDiscount(type, value);
+    else if (discountTarget.item) await applyItemDiscount(discountTarget.item.id, type, value);
+    toast({
+      title: type ? t('discount.applied_title') : t('discount.removed_title'),
+      description: type
+        ? discountTarget.kind === 'cart'
+          ? t('discount.cart_short')
+          : discountTarget.name
+        : discountTarget.name,
+    });
   };
 
   return (
-    <div className="flex flex-col h-full bg-surface">
-      {/* Top Section */}
-      <div className="p-4 border-b border-border flex flex-col gap-2">
-        <div className="flex gap-4">
-          <form onSubmit={handleScannerSubmit} className="flex-1">
-            <Input
-              ref={scannerRef}
-              value={barcode}
-              onChange={(e) => setBarcode(e.target.value)}
-              placeholder={t('products.scan')}
-              autoFocus
-            />
-          </form>
-          <div className="flex-1">
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('products.search') + '...'}
-            />
-          </div>
+    <div className="flex h-full min-h-0 flex-col">
+      {noShift && (
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-rule bg-warning-tint px-4 py-2 text-[12px] text-warning">
+          <span>{t('sell.no_shift')}</span>
+          <Button size="sm" variant="outline" onClick={onOpenShift} className="border-warning/40 text-warning hover:border-warning">
+            {t('sell.open_shift')}
+          </Button>
         </div>
+      )}
 
-        {/* Cart Tabs */}
-        <div className="flex gap-2 items-center overflow-x-auto pb-1 mt-2">
-          {carts.map((cart, idx) => (
-            <button
-              key={cart.id}
-              onClick={() => setActiveTab(idx)}
-              className={cn(
-                "px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-2",
-                activeCartIndex === idx 
-                  ? "bg-accent text-white" 
-                  : "bg-surface-raised text-ink hover:bg-border/50"
-              )}
-            >
-              {cart.name || `Корзина ${idx + 1}`}
-              <span className="bg-black/20 px-1.5 py-0.5 rounded-full text-xs">
-                {cart.items.length}
+      {/* Scan and search */}
+      <div className="shrink-0 border-b border-rule bg-paper px-4 pb-3 pt-4">
+        <div className="flex gap-3">
+          <form onSubmit={handleScan} className="min-w-0 flex-[1.35]">
+            <label htmlFor="scan-input" className="mb-1.5 block text-[12px] font-medium text-ink-soft">
+              {t('sell.scan_label')}
+            </label>
+            <div className="relative">
+              <ScanLine
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint"
+                strokeWidth={1.75}
+              />
+              <Input
+                id="scan-input"
+                ref={scannerRef}
+                value={barcode}
+                onChange={(event) => setBarcode(event.target.value)}
+                placeholder={t('sell.scan_placeholder')}
+                autoComplete="off"
+                spellCheck={false}
+                className="h-12 pl-9 pr-16 text-[16px]"
+                disabled={busy}
+              />
+              <span className="num pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-ink-faint">
+                Enter
               </span>
-            </button>
-          ))}
-          {carts.length < 10 && (
-            <Button variant="ghost" size="icon" onClick={() => createCart()}>
-              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" className="h-4 w-4">
-                <path d="M7.49991 1V7.5M7.49991 14V7.5M7.49991 7.5H14M7.49991 7.5H1" stroke="currentColor" strokeLinecap="round"/>
-              </svg>
-            </Button>
-          )}
+            </div>
+          </form>
+
+          <div className="relative min-w-0 flex-1">
+            <label htmlFor="search-input" className="mb-1.5 block text-[12px] font-medium text-ink-soft">
+              {t('sell.search_label')}
+            </label>
+            <form onSubmit={handleSearchSubmit}>
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint"
+                  strokeWidth={1.75}
+                />
+                <Input
+                  id="search-input"
+                  ref={searchRef}
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  onFocus={() => search.trim().length >= 2 && setSearchOpen(true)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') setSearchOpen(false);
+                  }}
+                  placeholder={t('sell.search_placeholder')}
+                  autoComplete="off"
+                  className="h-12 pl-9 pr-10"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch('');
+                      setResults([]);
+                      setSearchOpen(false);
+                    }}
+                    aria-label={t('general.clear')}
+                    className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center text-ink-faint hover:text-ink"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </form>
+
+            {searchOpen && search.trim().length >= 2 && (
+              <div className="absolute inset-x-0 top-[calc(100%+6px)] z-30 border border-rule-strong bg-paper shadow-[0_18px_40px_-20px_rgba(10,14,9,0.4)] animate-fade">
+                <div className="flex items-center justify-between px-3 pb-2">
+                  <span className="text-[12px] text-ink-soft">{t('sell.search_results')}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch('');
+                      setResults([]);
+                      setSearchOpen(false);
+                    }}
+                    aria-label={t('general.close')}
+                    className="rounded-[2px] text-ink-faint hover:text-ink h-6 w-6 flex items-center justify-center"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+                {results.length === 0 ? (
+                  <p className="px-3 py-4 text-[12px] text-ink-soft">{t('sell.no_results')}</p>
+                ) : (
+                  <ul className="max-h-80 overflow-auto">
+                    {results.map((product) => (
+                      <li key={product.id} className="border-b border-rule last:border-0">
+                        <button
+                          type="button"
+                          onClick={() => product.barcode && void addProduct(product.barcode)}
+                          className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-counter"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-[13px] text-ink">{product.name}</span>
+                            <span className="num block text-[11px] text-ink-faint">
+                              {product.barcode} · {t('sell.in_stock', { qty: formatQty(product.stock_qty), unit: product.unit })}
+                            </span>
+                          </span>
+                          <span className="num shrink-0 text-[13px] font-medium text-ink">
+                            {formatPrice(product.price)}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Middle Section - Items */}
-      <div className="flex-1 overflow-auto p-4">
-        {!activeCart || activeCart.items.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-ink-muted">
-            Добавьте товары в корзину
+      {/* Cart tabs */}
+      <div className="flex shrink-0 items-end gap-1 overflow-x-auto border-b border-rule bg-counter-deep px-4 pt-2">
+        {carts.map((entry, index) => {
+          const createdOrder = [...carts]
+            .sort((a, b) => a.cart.created_at.localeCompare(b.cart.created_at))
+            .findIndex((item) => item.cart.id === entry.cart.id);
+          return (
+          <button
+            key={entry.cart.id}
+            type="button"
+            onClick={() => {
+              setActiveTab(index);
+              focusScanner();
+            }}
+            className={cn(
+              'relative -mb-px flex min-h-10 max-w-[190px] shrink-0 items-center gap-2 rounded-t-[3px] border border-b-0 px-3 text-[12px] font-medium transition-colors',
+              activeCartIndex === index
+                ? 'border-rule-strong bg-paper text-ink before:absolute before:inset-x-0 before:top-0 before:h-[2px] before:bg-carbon'
+                : 'border-transparent text-ink-soft hover:bg-counter hover:text-ink',
+            )}
+          >
+            <span className="truncate">
+              {entry.cart.name || t('sell.cart', { n: createdOrder + 1 })}
+            </span>
+            <span className="num rounded-[2px] bg-counter-deep px-1 text-[10px] text-ink-soft">
+              {entry.items.length}
+            </span>
+          </button>
+          );
+        })}
+        {carts.length < 10 && (
+          <button
+            type="button"
+            onClick={() => void createCart().then(focusScanner)}
+            aria-label={t('sell.new_cart')}
+            title={t('sell.new_cart')}
+            className="-mb-px flex h-10 w-10 shrink-0 items-center justify-center rounded-t-[3px] text-ink-soft transition-colors hover:bg-counter hover:text-ink"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2} />
+          </button>
+        )}
+
+        <div className="ml-auto flex shrink-0 items-center pb-1 pl-3">
+          <button
+            type="button"
+            onClick={() => void openPark()}
+            className="flex min-h-9 items-center gap-1.5 px-2 text-[12px] text-ink-soft transition-colors hover:text-ink"
+          >
+            <Archive className="h-3.5 w-3.5" strokeWidth={1.75} />
+            {t('sell.park')}
+            {parkedCarts.length > 0 && (
+              <span className="num rounded-[2px] border border-rule-strong px-1 text-[10px]">
+                {parkedCarts.length}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Ledger */}
+      <div className="min-h-0 flex-1 overflow-auto bg-paper">
+        {items.length === 0 ? (
+          <div className="px-5 py-6">
+            <p className="text-[12px] font-medium text-ink-soft">{t('sell.empty_title')}</p>
+            <p className="mt-1 max-w-[46ch] text-[20px] font-semibold leading-snug tracking-tight text-ink">
+              {t('sell.empty_hint')}
+            </p>
+
+            <div className="mt-7 border-t border-rule pt-3">
+              <h2 className="text-[12px] font-medium text-ink-soft">{t('sell.quick_add')}</h2>
+              <div className="mt-3 grid grid-cols-2 gap-px border border-rule bg-rule xl:grid-cols-3">
+                {quickProducts.map((product) => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onClick={() => product.barcode && void addProduct(product.barcode)}
+                    className="group flex min-h-[70px] flex-col items-start justify-between bg-paper p-3 text-left transition-colors hover:bg-counter"
+                  >
+                    <span className="line-clamp-2 text-[13px] leading-snug text-ink">{product.name}</span>
+                    <span className="mt-2 flex w-full items-baseline justify-between">
+                      <span className="num text-[12px] text-ink-soft">{formatPrice(product.price)}</span>
+                      <span className="text-[10px] text-ink-faint">
+                        {formatQty(product.stock_qty)} {product.unit}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         ) : (
-          <div className="w-full">
-            <div className="grid grid-cols-[3rem_1fr_6rem_8rem_6rem_3rem] gap-4 font-medium text-ink-muted text-sm pb-2 border-b border-border">
-              <div>№</div>
-              <div>{t('cart.product')}</div>
-              <div className="text-right">{t('cart.price')}</div>
-              <div className="text-center">{t('cart.qty')}</div>
-              <div className="text-right">{t('cart.total')}</div>
-              <div></div>
+          <>
+            <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_88px_136px_104px_72px] gap-3 border-b border-rule bg-paper-deep px-4 py-2 text-[11px] font-medium text-ink-soft">
+              <span>{t('sell.col_name')}</span>
+              <span className="text-right">{t('sell.col_price')}</span>
+              <span className="text-center">{t('sell.col_qty')}</span>
+              <span className="text-right">{t('sell.col_sum')}</span>
+              <span className="text-right">{t('sell.col_actions')}</span>
             </div>
-            
-            <div className="flex flex-col">
-              {activeCart.items.map((item, idx) => (
-                <div key={item.id} className="grid grid-cols-[3rem_1fr_6rem_8rem_6rem_3rem] gap-4 py-3 border-b border-border items-center">
-                  <div className="text-sm text-ink-muted">{idx + 1}</div>
-                  <div className="font-medium text-ink">{item.name}</div>
-                  <div className="text-right tabular-nums">{formatPrice(item.price)}</div>
-                  <div className="flex items-center justify-center gap-2">
-                    <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => updateItemQty(item.id, item.qty - 1)}>-</Button>
-                    <span className="tabular-nums w-8 text-center">{item.qty}</span>
-                    <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => updateItemQty(item.id, item.qty + 1)}>+</Button>
+
+            <ul>
+              {items.map((item) => (
+                <li
+                  key={item.id}
+                  className={cn(
+                    'grid min-h-14 grid-cols-[minmax(0,1fr)_88px_136px_104px_72px] items-center gap-3 border-b border-rule px-4 py-2 transition-colors hover:bg-paper-deep',
+                    recentItemId === item.id && 'animate-print',
+                  )}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[14px] text-ink">{item.name}</p>
+                    <p className="num mt-0.5 flex items-center gap-2 text-[10px] text-ink-faint">
+                      <span className="truncate">{item.barcode}</span>
+                      {item.discount_type && (
+                        <span className="shrink-0 text-warning">
+                          {item.discount_type === 'percentage'
+                            ? `−${item.discount_value}%`
+                            : `−${formatPrice(item.discount_value ?? 0)}`}
+                        </span>
+                      )}
+                    </p>
                   </div>
-                  <div className="text-right tabular-nums font-medium">{formatPrice(item.total)}</div>
-                  <div className="text-right">
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-danger" onClick={() => removeItem(item.id)}>
-                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-                        <path fillRule="evenodd" clipRule="evenodd" d="M11.7816 4.03157C12.0062 3.80702 12.0062 3.44295 11.7816 3.2184C11.5571 2.99385 11.193 2.99385 10.9685 3.2184L7.50005 6.68682L4.03164 3.21841C3.80708 2.99386 3.44301 2.99386 3.21846 3.21841C2.99391 3.44297 2.99391 3.80703 3.21846 4.03159L6.68688 7.49999L3.21846 10.9684C2.99391 11.193 2.99391 11.557 3.21846 11.7816C3.44301 12.0061 3.80708 12.0061 4.03164 11.7816L7.50005 8.31316L10.9685 11.7816C11.193 12.0061 11.5571 12.0061 11.7816 11.7816C12.0062 11.557 12.0062 11.193 11.7816 10.9684L8.31322 7.49999L11.7816 4.03157Z" fill="currentColor" />
-                      </svg>
-                    </Button>
+
+                  <span className="num text-right text-[13px] text-ink">{formatPrice(item.price)}</span>
+
+                  <div className="flex items-center justify-center">
+                    {item.is_weighted ? (
+                      <span className="num text-[13px] text-ink-soft">
+                        {formatQty(item.qty)} кг
+                      </span>
+                    ) : (
+                      <div className="flex items-center border border-rule-strong">
+                        <button
+                          type="button"
+                          aria-label={t('sell.decrease')}
+                          onClick={() => void handleQty(item, item.qty - 1)}
+                          disabled={item.qty <= 1}
+                          className="flex h-10 w-10 items-center justify-center text-ink-soft transition-colors hover:bg-counter hover:text-ink disabled:opacity-35"
+                        >
+                          <Minus className="h-3.5 w-3.5" strokeWidth={2} />
+                        </button>
+                        <span className="num flex h-10 w-11 items-center justify-center border-x border-rule text-[13px] text-ink">
+                          {formatQty(item.qty)}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={t('sell.increase')}
+                          onClick={() => void handleQty(item, item.qty + 1)}
+                          className="flex h-10 w-10 items-center justify-center text-ink-soft transition-colors hover:bg-counter hover:text-ink"
+                        >
+                          <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>
+
+                  <span className="num text-right text-[15px] font-medium tracking-tight text-ink">
+                    {formatPrice(item.final_price)}
+                  </span>
+
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      aria-label={t('sell.line_discount')}
+                      title={t('sell.line_discount')}
+                      onClick={() =>
+                        setDiscountTarget({
+                          kind: 'item',
+                          item,
+                          name: item.name,
+                          currentType: item.discount_type,
+                          currentValue: item.discount_value,
+                          hasDiscount: Boolean(item.discount_type),
+                        })
+                      }
+                      className={cn(
+                        'flex h-9 w-9 items-center justify-center transition-colors hover:bg-counter hover:text-carbon',
+                        item.discount_type ? 'text-warning' : 'text-ink-faint',
+                      )}
+                    >
+                      <Percent className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={t('sell.remove_item')}
+                      title={t('sell.remove_item')}
+                      onClick={() => setRemoveTarget(item)}
+                      className="flex h-9 w-9 items-center justify-center text-ink-faint transition-colors hover:bg-danger-tint hover:text-danger"
+                    >
+                      <X className="h-4 w-4" strokeWidth={1.75} />
+                    </button>
+                  </div>
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          </>
         )}
       </div>
 
-      {/* Bottom Section - Totals & Actions */}
-      <div className="p-6 bg-surface-raised border-t border-border mt-auto">
-        <div className="flex flex-col items-end mb-6">
-          {activeCart && activeCart.discount_val && (
-             <div className="text-xl text-ink-muted mb-1">
-               {t('cart.discount')}: -{formatPrice(activeCart.discount_val)}
-             </div>
-          )}
-          <div className="text-5xl font-bold tabular-nums text-ink tracking-tight">
-            {t('cart.total')}: {activeCart ? formatPrice(activeCart.total) : '0'}
+      {/* Total band */}
+      <div className="shrink-0 border-t border-rule bg-paper">
+        <div className="flex items-stretch">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 px-4 py-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setDiscountTarget({
+                  kind: 'cart',
+                  name: t('discount.cart_target', {
+                    name: activeCart?.cart.name || t('sell.cart', { n: activeCartIndex + 1 }),
+                  }),
+                  currentType: null,
+                  currentValue: null,
+                  hasDiscount: items.some((item) => Boolean(item.discount_type)),
+                })
+              }
+              disabled={!items.length}
+            >
+              <Percent className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {t('sell.discount_cart')}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => void openPark()} disabled={!items.length}>
+              <Archive className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {t('sell.park')}
+            </Button>
+            <Button
+              variant="dangerGhost"
+              size="sm"
+              onClick={() => setClearOpen(true)}
+              disabled={!items.length}
+            >
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {t('sell.clear')}
+            </Button>
+            {discount > 0 && (
+              <span className="num ml-1 text-[11px] text-warning">
+                −{formatPrice(discount)}
+              </span>
+            )}
           </div>
-        </div>
 
-        <div className="flex gap-4">
-          <Button variant="outline" className="flex-1 h-14 text-lg">Скидка на чек</Button>
-          <Button variant="outline" className="flex-1 h-14 text-lg" onClick={() => parkCart('Отложено')}>
-            {t('cart.park')}
-          </Button>
-          <Button variant="outline" className="flex-1 h-14 text-lg text-danger hover:bg-danger hover:text-white" onClick={handleClear}>
-            {t('cart.clear')}
-          </Button>
-          <Button 
-            className="flex-[2] h-14 text-xl bg-accent text-white hover:bg-accent-hover relative" 
-            onClick={() => setIsPaymentOpen(true)}
-            disabled={!activeCart || activeCart.items.length === 0}
-          >
-            {t('payment.submit')}
-            <span className="absolute bottom-1 right-2 text-xs opacity-70 font-normal">F1 / F2</span>
-          </Button>
+          <div className="flex shrink-0 items-center gap-4 border-l border-rule px-4 py-3">
+            <div className="text-right">
+              <p className="text-[11px] text-ink-soft">
+                {t('payment.total')} · {t('sell.items', { count: items.length })}
+              </p>
+              <p className="num mt-0.5 text-[38px] font-semibold leading-none tracking-tighter text-ink">
+                {formatPrice(total)}
+              </p>
+            </div>
+            <Button
+              size="xl"
+              onClick={() => onRequestPayment('cash')}
+              disabled={!items.length}
+              className="min-w-[150px]"
+            >
+              {t('sell.pay')}
+              <span className="num ml-1 text-[10px] font-normal opacity-70">F1</span>
+            </Button>
+          </div>
         </div>
       </div>
 
-      {isPaymentOpen && (
-        <PaymentModal onClose={() => setIsPaymentOpen(false)} cart={activeCart} />
-      )}
+      <ConfirmDialog
+        open={Boolean(removeTarget)}
+        title={t('sell.remove_title')}
+        description={removeTarget ? t('sell.remove_description', { name: removeTarget.name }) : ''}
+        confirmLabel={t('sell.remove_confirm')}
+        cancelLabel={t('general.cancel')}
+        destructive
+        onConfirm={() => void confirmRemove()}
+        onClose={() => setRemoveTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={clearOpen}
+        title={t('sell.clear_title')}
+        description={t('sell.clear_description', { count: items.length })}
+        confirmLabel={t('sell.clear_confirm')}
+        cancelLabel={t('general.cancel')}
+        destructive
+        onConfirm={() => void confirmClear()}
+        onClose={() => setClearOpen(false)}
+      />
+
+      <DiscountDialog
+        target={discountTarget}
+        onClose={() => setDiscountTarget(null)}
+        onSubmit={applyDiscount}
+      />
+
+      <Dialog open={parkOpen} onOpenChange={(next) => !next && setParkOpen(false)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t('sell.park_title')}</DialogTitle>
+          </DialogHeader>
+          <DialogBody className="space-y-5">
+            <form onSubmit={submitPark} className="space-y-3">
+              <Input
+                label={t('sell.park_name')}
+                value={parkName}
+                onChange={(event) => setParkName(event.target.value)}
+                placeholder={t('sell.park_placeholder')}
+                autoFocus
+              />
+              <Button type="submit" className="w-full" disabled={!parkName.trim() || !items.length}>
+                {t('sell.park_submit')}
+              </Button>
+            </form>
+
+            <div className="border-t border-rule pt-4">
+              <h3 className="text-[12px] font-medium text-ink-soft">{t('sell.park_existing')}</h3>
+              {parkedCarts.length === 0 ? (
+                <p className="mt-3 text-[12px] text-ink-faint">{t('sell.park_empty')}</p>
+              ) : (
+                <ul className="mt-2 divide-y divide-rule border-y border-rule">
+                  {parkedCarts.map((cart) => (
+                    <li key={cart.id} className="flex items-center justify-between gap-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] text-ink">{cart.name || `#${cart.id}`}</p>
+                        <p className="num text-[10px] text-ink-faint">#{cart.id}</p>
+                      </div>
+                      <Button size="sm" variant="outline" onClick={() => void resumeParked(cart.id)}>
+                        {t('sell.resume')}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setParkOpen(false)}>
+              {t('general.close')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

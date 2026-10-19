@@ -1,78 +1,149 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Titlebar } from '../components/Titlebar';
 import { StatusBar } from '../components/StatusBar';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs';
 import { useTranslation } from '../i18n/i18nContext';
 import { SellPage } from '../pages/SellPage';
+import { ReceiptTape } from '../components/ReceiptTape';
 import { ReceiptsPanel } from '../components/ReceiptsPanel';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { SmenaControls } from '../components/SmenaControls';
+import { PaymentModal, type PaymentMethod } from '../pages/PaymentModal';
+import { useAuthStore } from '../stores/authStore';
 import { useCartStore } from '../stores/cartStore';
+import { useSettingsStore } from '../stores/settingsStore';
+import { useSyncStore } from '../stores/syncStore';
+import { cn } from '../lib/utils';
+
+type Panel = 'receipt' | 'receipts' | 'settings';
 
 export function AppLayout() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState('cart');
-  const { activeCart } = useCartStore();
+  const { openSmena, lockScreen, token } = useAuthStore();
+  const { activeCart, createCart, refreshCarts, refreshParkedCarts } = useCartStore();
+  const { lockTime } = useSettingsStore();
+  const { refresh: refreshSync } = useSyncStore();
+
+  const [panel, setPanel] = useState<Panel>('receipt');
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [smenaOpen, setSmenaOpen] = useState(false);
+  const [receiptsVersion, setReceiptsVersion] = useState(0);
+  const bootstrapped = useRef(false);
+
+  useEffect(() => {
+    if (bootstrapped.current || !token) return;
+    bootstrapped.current = true;
+    const bootstrap = async () => {
+      try {
+        await refreshCarts();
+        await refreshParkedCarts();
+        if (useCartStore.getState().carts.length === 0) await createCart();
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    void bootstrap();
+  }, [token, refreshCarts, refreshParkedCarts, createCart]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void refreshSync();
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [refreshSync]);
+
+  useEffect(() => {
+    if (!lockTime) return;
+    let timer = window.setTimeout(() => void lockScreen(), lockTime * 60_000);
+    const reset = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void lockScreen(), lockTime * 60_000);
+    };
+    window.addEventListener('pointerdown', reset);
+    window.addEventListener('keydown', reset);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('pointerdown', reset);
+      window.removeEventListener('keydown', reset);
+    };
+  }, [lockTime, lockScreen]);
+
+  const requestPayment = useCallback(
+    (method: PaymentMethod) => {
+      if (!useAuthStore.getState().openSmena) {
+        setSmenaOpen(true);
+        return;
+      }
+      setPaymentMethod(method);
+      setPaymentOpen(true);
+    },
+    [],
+  );
+
+  const tabs: Array<{ id: Panel; label: string; count?: number }> = [
+    { id: 'receipt', label: t('shell.tab_receipt') },
+    { id: 'receipts', label: t('shell.tab_receipts') },
+    { id: 'settings', label: t('shell.tab_settings') },
+  ];
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
-      <div className="flex justify-between items-center bg-surface-raised border-b border-border">
-        <div className="flex-1">
-          <Titlebar />
-        </div>
-        <div className="pr-4 py-1 z-10 absolute right-10 top-0 mt-1">
-          <SmenaControls />
-        </div>
-      </div>
-      
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Left main content area */}
-        <div className="flex-1 border-r border-border flex flex-col bg-surface">
-          <SellPage />
-        </div>
+    <div className="flex h-screen flex-col overflow-hidden bg-counter">
+      <Titlebar showAccount />
 
-        {/* Right side panel */}
-        <div className="w-80 flex flex-col bg-surface-raised z-0">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-            <div className="p-2 border-b border-border">
-              <TabsList className="w-full grid grid-cols-3">
-                <TabsTrigger value="cart">{t('cart.title')}</TabsTrigger>
-                <TabsTrigger value="receipts">{t('receipts.title')}</TabsTrigger>
-                <TabsTrigger value="settings">{t('settings.title')}</TabsTrigger>
-              </TabsList>
-            </div>
-            
-            <div className="flex-1 overflow-hidden">
-              <TabsContent value="cart" className="mt-0 h-full overflow-auto">
-                {activeCart ? (
-                  <div className="p-4 space-y-2">
-                    <h3 className="font-medium text-ink">{activeCart.name || 'Текущая корзина'}</h3>
-                    <div className="text-sm text-ink-muted mb-4">{activeCart.items.length} товаров</div>
-                    {activeCart.items.map((item, idx) => (
-                      <div key={idx} className="flex justify-between text-sm py-1 border-b border-border">
-                        <span className="truncate pr-2">{item.name}</span>
-                        <span className="font-medium tabular-nums">{item.qty} x {item.price}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-ink-muted text-sm">
-                    Корзина пуста
-                  </div>
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_360px]">
+        <main className="flex min-h-0 min-w-0 flex-col border-r border-rule bg-counter">
+          <SellPage
+            onRequestPayment={requestPayment}
+            onOpenShift={() => setSmenaOpen(true)}
+            noShift={!openSmena}
+          />
+        </main>
+
+        <aside className="flex min-h-0 flex-col bg-paper-deep">
+          <div role="tablist" aria-label={t('shell.tabs')} className="flex shrink-0 border-b border-rule bg-paper">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={panel === tab.id}
+                aria-controls={`panel-${tab.id}`}
+                onClick={() => setPanel(tab.id)}
+                className={cn(
+                  'relative min-h-11 flex-1 px-2 py-3 text-[13px] font-medium transition-colors',
+                  panel === tab.id
+                    ? 'text-ink after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-carbon'
+                    : 'text-ink-soft hover:bg-counter hover:text-ink',
                 )}
-              </TabsContent>
-              <TabsContent value="receipts" className="mt-0 h-full overflow-hidden">
-                <ReceiptsPanel />
-              </TabsContent>
-              <TabsContent value="settings" className="mt-0 h-full overflow-hidden">
-                <SettingsPanel />
-              </TabsContent>
-            </div>
-          </Tabs>
-        </div>
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div id={`panel-${panel}`} role="tabpanel" className="min-h-0 flex-1">
+            {panel === 'receipt' && <ReceiptTape cart={activeCart} />}
+            {panel === 'receipts' && <ReceiptsPanel key={receiptsVersion} />}
+            {panel === 'settings' && <SettingsPanel />}
+          </div>
+        </aside>
       </div>
 
-      <StatusBar />
+      <StatusBar onShiftClick={() => setSmenaOpen(true)} />
+
+      {paymentOpen && activeCart && (
+        <PaymentModal
+          cart={activeCart}
+          initialMethod={paymentMethod}
+          onClose={() => setPaymentOpen(false)}
+          onPaid={() => {
+            setPaymentOpen(false);
+            setReceiptsVersion((version) => version + 1);
+          }}
+        />
+      )}
+
+      <SmenaControls open={smenaOpen} onOpenChange={setSmenaOpen} />
     </div>
   );
 }

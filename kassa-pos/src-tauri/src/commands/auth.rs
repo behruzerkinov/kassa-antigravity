@@ -83,8 +83,47 @@ pub fn lock_screen(token: String, state: State<'_, DbState>) -> Result<(), Strin
 }
 
 #[tauri::command]
+pub fn has_cashiers(state: State<'_, DbState>) -> Result<bool, String> {
+    let conn = state.pool.get().map_err(|e| e.to_string())?;
+    let count: i64 = conn.query_row("SELECT count(*) FROM cashiers", [], |r| r.get(0)).unwrap_or(0);
+    Ok(count > 0)
+}
+
+#[tauri::command]
+pub fn bootstrap_cashier(username: String, password: String, state: State<'_, DbState>) -> Result<LoginResponse, String> {
+    let conn = state.pool.get().map_err(|e| e.to_string())?;
+    let count: i64 = conn.query_row("SELECT count(*) FROM cashiers", [], |r| r.get(0)).unwrap_or(0);
+    if count > 0 {
+        return Err("Cashiers already exist. Use standard login.".to_string());
+    }
+    if username.trim().is_empty() || password.len() < 4 {
+        return Err("Username is required and password must be at least 4 characters.".to_string());
+    }
+    let hash = bcrypt::hash(&password, bcrypt::DEFAULT_COST).map_err(|e| e.to_string())?;
+    let now = Utc::now();
+    conn.execute(
+        "INSERT INTO cashiers (username, password_hash, created_at) VALUES (?1, ?2, ?3)",
+        rusqlite::params![username.trim(), hash, now.to_rfc3339()]
+    ).map_err(|e| e.to_string())?;
+    let id = conn.last_insert_rowid();
+
+    let token = Uuid::new_v4().to_string();
+    let expires = now + Duration::hours(12);
+    conn.execute(
+        "INSERT INTO sessions (cashier_id, token, created_at, expires_at) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![id, token, now.to_rfc3339(), expires.to_rfc3339()]
+    ).map_err(|e| e.to_string())?;
+
+    Ok(LoginResponse {
+        token,
+        cashier_id: id,
+        cashier_name: username.trim().to_string(),
+        open_smena: None,
+    })
+}
+
+#[tauri::command]
 pub fn unlock_screen(token: String, password: String, state: State<'_, DbState>) -> Result<(), String> {
-    // Stub: validate session + password
     let conn = state.pool.get().map_err(|e| e.to_string())?;
     let (cashier_id, _name) = get_session_cashier(&conn, &token)?;
     

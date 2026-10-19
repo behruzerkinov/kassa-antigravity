@@ -35,13 +35,20 @@ pub fn open_smena(token: String, state: State<'_, DbState>) -> Result<Smena, Str
 }
 
 #[tauri::command]
-pub fn close_smena(token: String, smena_id: i64, state: State<'_, DbState>) -> Result<(), String> {
+pub fn close_smena(token: String, smena_id: i64, force: Option<bool>, state: State<'_, DbState>) -> Result<(), String> {
     let conn = state.pool.get().map_err(|e| e.to_string())?;
     let (cashier_id, _) = get_session_cashier(&conn, &token)?;
 
-    let pending: i64 = conn.query_row("SELECT COUNT(*) FROM transactions WHERE smena_id = ?1 AND sync_status = 'pending'", rusqlite::params![smena_id], |r| r.get(0)).unwrap_or(0);
-    if pending > 0 {
-        return Err("Cannot close smena with pending transactions".into());
+    let is_force = force.unwrap_or(false);
+    if !is_force {
+        let pending: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM transactions WHERE smena_id = ?1 AND sync_status = 'pending'",
+            rusqlite::params![smena_id],
+            |r| r.get(0)
+        ).unwrap_or(0);
+        if pending > 0 {
+            return Err("Cannot close smena with pending transactions".into());
+        }
     }
 
     let now = Utc::now().to_rfc3339();

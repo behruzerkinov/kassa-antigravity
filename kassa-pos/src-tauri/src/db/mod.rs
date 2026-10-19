@@ -146,14 +146,8 @@ fn run_schema(conn: &Connection) {
 }
 
 fn seed_db(conn: &Connection) {
-    let admin_exists: i64 = conn.query_row("SELECT count(*) FROM cashiers WHERE username = 'admin'", [], |row| row.get(0)).unwrap_or(0);
-    if admin_exists == 0 {
-        let hash = bcrypt::hash("1234", bcrypt::DEFAULT_COST).unwrap();
-        conn.execute(
-            "INSERT INTO cashiers (username, password_hash, created_at) VALUES (?1, ?2, datetime('now'))",
-            rusqlite::params!["admin", hash]
-        ).expect("Failed to seed admin user");
-    }
+    // Note: First-run cashier bootstrap is performed deliberately by the user on first launch.
+    // No hardcoded universal default passwords are permitted.
 
     let default_expenses = vec!["Инкассация", "Хоз. нужды", "Выдача з/п", "Прочее"];
     for exp in default_expenses {

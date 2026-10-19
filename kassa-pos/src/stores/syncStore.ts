@@ -1,35 +1,62 @@
 import { create } from 'zustand';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '../lib/desktop';
+import type { SyncStatus } from '../lib/types';
 import { useAuthStore } from './authStore';
 
 const getToken = () => {
   const token = useAuthStore.getState().token;
-  if (!token) throw new Error('Not authenticated');
+  if (!token) throw new Error('Нет активной сессии');
   return token;
 };
 
 interface SyncState {
   pendingCount: number;
-  lastSyncError: string | null;
+  failedCount: number;
+  lastSyncedAt: string | null;
   isSyncing: boolean;
-  setPendingCount: (count: number) => void;
-  setSyncStatus: (isSyncing: boolean, error?: string | null) => void;
-  triggerSync: () => Promise<void>;
+  lastSyncError: string | null;
+  refresh: () => Promise<void>;
+  retry: () => Promise<number>;
 }
 
 export const useSyncStore = create<SyncState>((set) => ({
   pendingCount: 0,
-  lastSyncError: null,
+  failedCount: 0,
+  lastSyncedAt: null,
   isSyncing: false,
-  setPendingCount: (count) => set({ pendingCount: count }),
-  setSyncStatus: (isSyncing, error = null) => set({ isSyncing, lastSyncError: error }),
-  triggerSync: async () => {
+  lastSyncError: null,
+
+  refresh: async () => {
+    if (!useAuthStore.getState().token) return;
     try {
-      set({ isSyncing: true, lastSyncError: null });
-      await invoke('trigger_sync', { token: getToken() });
-      set({ isSyncing: false });
-    } catch (e: any) {
-      set({ isSyncing: false, lastSyncError: e.message || 'Error' });
+      const status = await invoke<SyncStatus>('get_sync_status');
+      set({
+        pendingCount: status.pending_count,
+        failedCount: status.failed_count,
+        lastSyncedAt: status.last_synced_at,
+      });
+    } catch {
+      // Status is informational; keep the last known value.
     }
-  }
+  },
+
+  retry: async () => {
+    set({ isSyncing: true, lastSyncError: null });
+    try {
+      const count = await invoke<number>('retry_failed_sync');
+      const status = await invoke<SyncStatus>('get_sync_status');
+      set({
+        pendingCount: status.pending_count,
+        failedCount: status.failed_count,
+        lastSyncedAt: status.last_synced_at,
+        isSyncing: false,
+      });
+      return count;
+    } catch (error) {
+      set({ isSyncing: false, lastSyncError: String(error) });
+      throw error;
+    }
+  },
 }));
+
+export { getToken as getSyncToken };

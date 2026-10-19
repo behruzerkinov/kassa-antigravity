@@ -1,13 +1,25 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+export type Locale = 'ru' | 'uz-Cyrl' | 'uz-Latn';
+
 interface SettingsState {
-  language: string;
+  language: Locale;
   autoPrint: boolean;
   lockTime: number;
-  setLanguage: (lang: string) => void;
+  printerName: string;
+  printerWidth: 58 | 80;
+  weightedPrefixes: string;
+  autostart: boolean;
+  theme: 'light' | 'dark';
+  setLanguage: (lang: Locale) => void;
   setAutoPrint: (auto: boolean) => void;
   setLockTime: (time: number) => void;
+  setPrinterName: (name: string) => void;
+  setPrinterWidth: (width: 58 | 80) => void;
+  setWeightedPrefixes: (prefixes: string) => void;
+  setAutostart: (enabled: boolean) => void;
+  setTheme: (theme: 'light' | 'dark') => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -15,13 +27,21 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       language: 'ru',
       autoPrint: true,
-      lockTime: 0,
-      setLanguage: (lang) => set({ language: lang }),
-      setAutoPrint: (auto) => set({ autoPrint: auto }),
-      setLockTime: (time) => set({ lockTime: time })
+      lockTime: 5,
+      printerName: 'XP-80C (USB)',
+      printerWidth: 80,
+      weightedPrefixes: '27,28,29',
+      autostart: false,
+      theme: 'light',
+      setLanguage: (language) => set({ language }),
+      setAutoPrint: (autoPrint) => set({ autoPrint }),
+      setLockTime: (lockTime) => set({ lockTime }),
+      setPrinterName: (printerName) => set({ printerName }),
+      setPrinterWidth: (printerWidth) => set({ printerWidth }),
+      setWeightedPrefixes: (weightedPrefixes) => set({ weightedPrefixes }),
+      setAutostart: (autostart) => set({ autostart }),
+      setTheme: (theme) => set({ theme }),
     }),
-    {
-      name: 'kassa-settings'
-    }
-  )
+    { name: 'kassa-settings' },
+  ),
 );

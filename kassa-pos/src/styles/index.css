@@ -1,66 +1,242 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+@import '@fontsource-variable/golos-text';
+@import '@fontsource-variable/jetbrains-mono';
 
+/*
+ * Kassa visual language
+ * ---------------------
+ * A till, not a dashboard. The palette is counter-top bone, paper white and
+ * carbon-copy ink; the single accent (carbon blue) is reserved for action and
+ * selection. Numbers are always monospaced and tabular. Surfaces are separated
+ * by 1px rules rather than shadows, so the ledger reads like printed paper.
+ */
 @theme {
-  --color-ink: #1a1a1a;
-  --color-ink-muted: #6b7280;
-  --color-surface: #ffffff;
-  --color-surface-raised: #f9fafb;
-  --color-border: #e5e7eb;
-  --color-accent: #2563eb;
-  --color-accent-hover: #1d4ed8;
-  --color-danger: #dc2626;
-  --color-danger-hover: #b91c1c;
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-ring: #2563eb;
-  
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Cascadia Code', monospace;
+  --color-counter: #eff0ea;
+  --color-counter-deep: #e4e6dd;
+  --color-paper: #ffffff;
+  --color-paper-deep: #f7f8f3;
+  --color-ink: #151814;
+  --color-ink-soft: #5f665c;
+  --color-ink-faint: #8b9187;
+  --color-rule: #d5d8cd;
+  --color-rule-strong: #b8bcae;
+  --color-carbon: #233c8c;
+  --color-carbon-deep: #182b69;
+  --color-carbon-tint: #e7eaf7;
+  --color-success: #0e6b3d;
+  --color-success-tint: #e4f1e9;
+  --color-danger: #a32b23;
+  --color-danger-tint: #f7e7e4;
+  --color-warning: #8a5a06;
+  --color-warning-tint: #f6eddb;
+
+  --font-sans: 'Golos Text Variable', 'Golos Text', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', 'Cascadia Mono', monospace;
 }
 
-/* Use @font-face or Google Fonts link for Inter and JetBrains Mono */
-@font-face {
-  font-family: 'Inter';
-  src: local('Inter');
-  font-display: swap;
+:root[data-theme='dark'] {
+  --color-counter: #141713;
+  --color-counter-deep: #0f120e;
+  --color-paper: #1c201b;
+  --color-paper-deep: #23281f;
+  --color-ink: #e9ece2;
+  --color-ink-soft: #a4ac9e;
+  --color-ink-faint: #7c857a;
+  --color-rule: #333a30;
+  --color-rule-strong: #4a5346;
+  --color-carbon: #8fa3f5;
+  --color-carbon-deep: #aebdfa;
+  --color-carbon-tint: #242c4a;
+  --color-success: #64c68f;
+  --color-success-tint: #1b3326;
+  --color-danger: #ef8a80;
+  --color-danger-tint: #3a211e;
+  --color-warning: #ddb05e;
+  --color-warning-tint: #362c18;
+  color-scheme: dark;
 }
 
-/* Global focus-visible ring — NEVER remove this */
-*:focus-visible {
-  outline: 2px solid var(--color-ring);
-  outline-offset: 2px;
+@layer base {
+  * {
+    border-color: var(--color-rule);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: var(--color-counter);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.35;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow: hidden;
+  }
+
+  ::selection {
+    background: var(--color-carbon);
+    color: #fff;
+  }
+
+  /* Visible keyboard focus is part of the quality floor. Never remove. */
+  *:focus-visible {
+    outline: 2px solid var(--color-carbon);
+    outline-offset: 2px;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  input::placeholder {
+    color: var(--color-ink-faint);
+  }
+
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-rule-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 6px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-faint);
+    background-clip: content-box;
+  }
 }
 
-/* Tabular numerals for all price/number displays */
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
-  font-family: var(--font-mono);
+@layer utilities {
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: -0.02em;
+  }
+
+  .tracking-tighter {
+    letter-spacing: -0.03em;
+  }
+
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  /* A thermal receipt ends in sawtooth paper, not a rounded card. */
+  .receipt-tear {
+    height: 10px;
+    background: var(--color-paper);
+    mask-image:
+      linear-gradient(-45deg, transparent 5.5px, #000 0),
+      linear-gradient(45deg, transparent 5.5px, #000 0);
+    mask-size: 11px 10px;
+    mask-position: 0 0;
+    mask-repeat: repeat-x;
+  }
+
+  .paper-grid {
+    background-image: radial-gradient(var(--color-rule) 0.75px, transparent 0.75px);
+    background-size: 16px 16px;
+    background-position: -1px -1px;
+  }
+
+  .animate-print {
+    animation: print-line 220ms ease-out both;
+  }
+
+  .animate-sheet {
+    animation: sheet-up 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .animate-toast {
+    animation: toast-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .animate-fade {
+    animation: fade-in 160ms ease-out both;
+  }
+
+  @keyframes print-line {
+    from {
+      opacity: 0;
+      transform: translateY(-3px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes sheet-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 }
 
-/* Custom scrollbar (thin, neutral) */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 3px;
-}
-
-/* Prevent text selection on UI elements */
-.select-none {
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-html, body, #root {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  background: var(--color-surface);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-  overflow: hidden;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

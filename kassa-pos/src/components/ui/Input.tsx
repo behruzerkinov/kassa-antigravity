@@ -1,39 +1,52 @@
 import * as React from 'react';
 import { cn } from '../../lib/utils';
 
-export interface InputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  hint?: string;
   error?: string;
+  numeric?: boolean;
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, label, error, id, ...props }, ref) => {
+  ({ className, type, label, hint, error, id, numeric, ...props }, ref) => {
     const generatedId = React.useId();
     const inputId = id || generatedId;
+    const hintId = `${inputId}-hint`;
 
     return (
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         {label && (
-          <label htmlFor={inputId} className="text-sm font-medium text-ink">
+          <label htmlFor={inputId} className="text-[12px] font-medium text-ink-soft">
             {label}
           </label>
         )}
         <input
-          type={type}
-          id={inputId}
-          className={cn(
-            'flex h-10 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-ink-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-colors',
-            error && 'border-danger focus-visible:ring-danger',
-            className
-          )}
           ref={ref}
+          id={inputId}
+          type={type}
+          aria-describedby={hint || error ? hintId : undefined}
+          aria-invalid={error ? true : undefined}
+          className={cn(
+            'h-11 w-full min-w-0 rounded-[3px] border border-rule-strong bg-paper px-3 text-[15px] text-ink transition-colors',
+            'placeholder:text-ink-faint hover:border-ink-faint focus:border-carbon',
+            numeric && 'num text-right',
+            error && 'border-danger',
+            className,
+          )}
           {...props}
         />
-        {error && <span className="text-xs text-danger">{error}</span>}
+        {(hint || error) && (
+          <span
+            id={hintId}
+            className={cn('text-[12px]', error ? 'text-danger' : 'text-ink-faint')}
+          >
+            {error || hint}
+          </span>
+        )}
       </div>
     );
-  }
+  },
 );
 Input.displayName = 'Input';
 

@@ -25,6 +25,8 @@ pub fn run() {
             auth::validate_session,
             auth::lock_screen,
             auth::unlock_screen,
+            auth::has_cashiers,
+            auth::bootstrap_cashier,
             
             smena::open_smena,
             smena::close_smena,
@@ -71,6 +73,8 @@ pub fn run() {
             
             sync::get_sync_status,
             sync::retry_failed_sync,
+            
+            update::restart_app_with_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

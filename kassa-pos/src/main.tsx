@@ -3,15 +3,17 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/index.css';
 import { I18nProvider } from './i18n/i18nContext';
-import { ToastProvider, ToastViewport } from './components/ui/Toast';
+import { ToastHost } from './components/ui/toast-host';
+import { useSettingsStore } from './stores/settingsStore';
+
+document.documentElement.dataset.theme = useSettingsStore.getState().theme;
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <I18nProvider>
-      <ToastProvider>
+      <ToastHost>
         <App />
-        <ToastViewport />
-      </ToastProvider>
+      </ToastHost>
     </I18nProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );
