@@ -42,6 +42,7 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
     updateItemQty,
     removeItem,
     clearCart,
+    closeCart,
     parkCart,
     resumeCart,
     applyItemDiscount,
@@ -58,6 +59,7 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
   const [recentItemId, setRecentItemId] = useState<number | null>(null);
   const [removeTarget, setRemoveTarget] = useState<CartItem | null>(null);
   const [clearOpen, setClearOpen] = useState(false);
+  const [closingCartId, setClosingCartId] = useState<number | null>(null);
   const [parkOpen, setParkOpen] = useState(false);
   const [parkName, setParkName] = useState('');
   const [discountTarget, setDiscountTarget] = useState<DiscountTarget | null>(null);
@@ -383,17 +385,44 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
               focusScanner();
             }}
             className={cn(
-              'relative -mb-px flex min-h-10 max-w-[190px] shrink-0 items-center gap-2 rounded-t-[3px] border border-b-0 px-3 text-[12px] font-medium transition-colors',
+              'group relative -mb-px flex min-h-10 max-w-[210px] shrink-0 items-center gap-2 rounded-t-lg border border-b-0 px-3 text-[12px] font-medium transition-all',
               activeCartIndex === index
-                ? 'border-rule-strong bg-paper text-ink before:absolute before:inset-x-0 before:top-0 before:h-[2px] before:bg-carbon'
+                ? 'border-rule-strong bg-paper text-ink shadow-[0_-1px_3px_rgba(0,0,0,0.04)] before:absolute before:inset-x-0 before:top-0 before:h-[2px] before:rounded-t-lg before:bg-carbon'
                 : 'border-transparent text-ink-soft hover:bg-counter hover:text-ink',
             )}
           >
             <span className="truncate">
               {entry.cart.name || t('sell.cart', { n: createdOrder + 1 })}
             </span>
-            <span className="num rounded-[2px] bg-counter-deep px-1 text-[10px] text-ink-soft">
+            <span className="num rounded-full bg-counter-deep px-1.5 py-0.5 text-[10px] font-semibold text-ink-soft">
               {entry.items.length}
+            </span>
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (entry.items.length > 0) {
+                  setClosingCartId(entry.cart.id);
+                } else {
+                  void closeCart(entry.cart.id);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.stopPropagation();
+                  if (entry.items.length > 0) {
+                    setClosingCartId(entry.cart.id);
+                  } else {
+                    void closeCart(entry.cart.id);
+                  }
+                }
+              }}
+              title="Закрыть вкладку"
+              aria-label="Закрыть вкладку"
+              className="ml-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-ink-faint transition-all hover:bg-danger-tint hover:text-danger opacity-60 group-hover:opacity-100"
+            >
+              <X className="h-3 w-3" strokeWidth={2.5} />
             </span>
           </button>
           );
@@ -707,6 +736,23 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={closingCartId !== null}
+        onClose={() => setClosingCartId(null)}
+        title="Закрыть вкладку чека?"
+        description="В этом чеке есть добавленные товары. При закрытии они будут удалены."
+        confirmLabel="Закрыть чек"
+        cancelLabel={t('general.cancel')}
+        destructive
+        onConfirm={() => {
+          if (closingCartId !== null) {
+            void closeCart(closingCartId);
+            setClosingCartId(null);
+            focusScanner();
+          }
+        }}
+      />
     </div>
   );
 }

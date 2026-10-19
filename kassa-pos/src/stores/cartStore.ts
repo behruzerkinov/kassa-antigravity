@@ -15,6 +15,7 @@ interface CartState {
   updateItemQty: (itemId: number, qty: number) => Promise<void>;
   removeItem: (itemId: number) => Promise<void>;
   clearCart: () => Promise<void>;
+  closeCart: (cartId: number) => Promise<void>;
   parkCart: (name: string) => Promise<void>;
   resumeCart: (cartId: number) => Promise<void>;
   setActiveTab: (index: number) => void;
@@ -69,6 +70,16 @@ export const useCartStore = create<CartState>((set, get) => ({
     if (!activeCart) return;
     await invoke('clear_cart', { token: getToken(), cartId: activeCart.cart.id });
     await get().refreshCarts();
+  },
+
+  closeCart: async (cartId: number) => {
+    await invoke('close_cart', { token: getToken(), cartId });
+    const remaining = get().carts.filter((c) => c.cart.id !== cartId);
+    if (remaining.length === 0) {
+      await get().createCart();
+    } else {
+      await get().refreshCarts();
+    }
   },
 
   parkCart: async (name) => {

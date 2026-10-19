@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LogOut, RefreshCw } from 'lucide-react';
+import { LogOut, RefreshCw, Monitor } from 'lucide-react';
 import { useTranslation } from '../i18n/i18nContext';
 import { useSettingsStore, type Locale } from '../stores/settingsStore';
 import { useAuthStore } from '../stores/authStore';
@@ -31,14 +31,35 @@ const LOCK_OPTIONS = [0, 1, 5, 10, 15, 30];
 export function SettingsPanel() {
   const { t, locale, setLocale } = useTranslation();
   const { toast } = useToast();
-  const { logout } = useAuthStore();
+  const { requestLogout, logout } = useAuthStore();
   const settings = useSettingsStore();
 
   const [printers, setPrinters] = useState<string[]>([]);
   const [loadingPrinters, setLoadingPrinters] = useState(false);
   const [prefixes, setPrefixes] = useState(settings.weightedPrefixes);
   const [resetOpen, setResetOpen] = useState(false);
+  const [creatingShortcut, setCreatingShortcut] = useState(false);
   const { currentVersion, checking, checkUpdates: runCheckUpdates } = useUpdateStore();
+
+  const handleCreateShortcut = async () => {
+    setCreatingShortcut(true);
+    try {
+      const msg = await invoke<string>('create_desktop_shortcut');
+      toast({
+        title: 'Ярлык создан',
+        description: typeof msg === 'string' ? msg : 'Ярлык Kassa POS успешно добавлен на рабочий стол',
+        variant: 'default',
+      });
+    } catch (err) {
+      toast({
+        title: 'Не удалось создать ярлык',
+        description: errorMessage(err),
+        variant: 'destructive',
+      });
+    } finally {
+      setCreatingShortcut(false);
+    }
+  };
 
   const saveSetting = (key: string, value: string) => {
     void invoke('update_setting', { key, value }).catch(() => undefined);
@@ -276,6 +297,23 @@ export function SettingsPanel() {
               aria-label={t('settings.autostart')}
             />
           </div>
+
+          <div className="mt-3.5 flex items-center justify-between gap-3 border-t border-rule/50 pt-3">
+            <div>
+              <p className="text-[12px] font-medium text-ink">Ярлык на рабочем столе</p>
+              <p className="text-[10px] text-ink-faint">Создать ярлык для быстрого запуска</p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void handleCreateShortcut()}
+              disabled={creatingShortcut}
+              className="gap-1.5 rounded-lg text-[11px]"
+            >
+              <Monitor className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {creatingShortcut ? t('general.loading') : 'Создать'}
+            </Button>
+          </div>
         </section>
 
         <section className="border-b border-rule px-4 py-3.5">
@@ -349,7 +387,7 @@ export function SettingsPanel() {
       </div>
 
       <div className="shrink-0 border-t border-rule px-4 py-3">
-        <Button variant="outline" className="w-full justify-start" onClick={() => void logout()}>
+        <Button variant="outline" className="w-full justify-start rounded-lg" onClick={() => requestLogout()}>
           <LogOut className="h-3.5 w-3.5" strokeWidth={1.75} />
           {t('settings.logout')}
         </Button>

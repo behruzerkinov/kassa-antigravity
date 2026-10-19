@@ -51,6 +51,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp src-tauri/target/release/kassa-pos.exe kassa-pos.exe
-          gh release create "$TAG" kassa-pos.exe --title "Kassa POS $TAG" --generate-notes --verify-tag \
-            || gh release upload "$TAG" kassa-pos.exe --clobber
+          mkdir -p dist-assets
+          cp src-tauri/target/release/kassa-pos.exe dist-assets/kassa-pos.exe || true
+          for f in src-tauri/target/release/bundle/nsis/*.exe; do
+            if [ -f "$f" ]; then
+              cp "$f" dist-assets/kassa-pos-setup.exe
+              break
+            fi
+          done
+          gh release create "$TAG" dist-assets/* --title "Kassa POS $TAG" --generate-notes --verify-tag \
+            || gh release upload "$TAG" dist-assets/* --clobber

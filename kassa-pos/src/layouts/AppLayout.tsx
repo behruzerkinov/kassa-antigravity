@@ -7,6 +7,7 @@ import { ReceiptTape } from '../components/ReceiptTape';
 import { ReceiptsPanel } from '../components/ReceiptsPanel';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { SmenaControls } from '../components/SmenaControls';
+import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
 import { PaymentModal, type PaymentMethod } from '../pages/PaymentModal';
 import { useAuthStore } from '../stores/authStore';
 import { useCartStore } from '../stores/cartStore';
@@ -18,7 +19,7 @@ type Panel = 'receipt' | 'receipts' | 'settings';
 
 export function AppLayout() {
   const { t } = useTranslation();
-  const { openSmena, lockScreen, token } = useAuthStore();
+  const { openSmena, lockScreen, token, logoutConfirmOpen, setLogoutConfirmOpen } = useAuthStore();
   const { activeCart, createCart, refreshCarts, refreshParkedCarts } = useCartStore();
   const { lockTime } = useSettingsStore();
   const { refresh: refreshSync } = useSyncStore();
@@ -144,6 +145,7 @@ export function AppLayout() {
       )}
 
       <SmenaControls open={smenaOpen} onOpenChange={setSmenaOpen} />
+      <LogoutConfirmDialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen} />
     </div>
   );
 }

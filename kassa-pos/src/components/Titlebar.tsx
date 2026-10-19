@@ -14,7 +14,7 @@ interface TitlebarProps {
 
 export function Titlebar({ showAccount = false }: TitlebarProps) {
   const { t } = useTranslation();
-  const { cashierName, lockScreen, logout } = useAuthStore();
+  const { cashierName, lockScreen, requestLogout } = useAuthStore();
   const [isMaximized, setIsMaximized] = useState(false);
   const desktop = isDesktop();
 
@@ -99,7 +99,7 @@ export function Titlebar({ showAccount = false }: TitlebarProps) {
           </button>
           <button
             type="button"
-            onClick={() => void logout()}
+            onClick={() => requestLogout()}
             title={t('titlebar.logout')}
             aria-label={t('titlebar.logout')}
             className="flex w-10 items-center justify-center text-ink-soft transition-colors hover:bg-danger-tint hover:text-danger"

@@ -3,56 +3,137 @@
 @import '@fontsource-variable/jetbrains-mono';
 
 /*
- * Kassa visual language
- * ---------------------
- * A till, not a dashboard. The palette is counter-top bone, paper white and
- * carbon-copy ink; the single accent (carbon blue) is reserved for action and
- * selection. Numbers are always monospaced and tabular. Surfaces are separated
- * by 1px rules rather than shadows, so the ledger reads like printed paper.
+ * Apple San Francisco Pro Typography
+ */
+@font-face {
+  font-family: 'SF Pro Text';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SF-Pro-Text-Regular.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Pro Text';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SF-Pro-Text-Medium.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Pro Text';
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SF-Pro-Text-Semibold.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Pro Text';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SF-Pro-Text-Bold.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'SF Pro Display';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SF-Pro-Display-Medium.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Pro Display';
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SF-Pro-Display-Semibold.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Pro Display';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SF-Pro-Display-Bold.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'SF Pro Rounded';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SF-Pro-Rounded-Regular.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Pro Rounded';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SF-Pro-Rounded-Medium.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Pro Rounded';
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SF-Pro-Rounded-Semibold.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SF Pro Rounded';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SF-Pro-Rounded-Bold.otf') format('opentype');
+}
+
+/*
+ * Kassa visual language - Refined Apple Ergonomics
+ * Clean hairline borders, smooth radiuses, SF Pro typography with tabular figures.
  */
 @theme {
-  --color-counter: #eff0ea;
-  --color-counter-deep: #e4e6dd;
+  --color-counter: #f2f3ef;
+  --color-counter-deep: #e6e8e0;
   --color-paper: #ffffff;
-  --color-paper-deep: #f7f8f3;
-  --color-ink: #151814;
-  --color-ink-soft: #5f665c;
-  --color-ink-faint: #8b9187;
-  --color-rule: #d5d8cd;
-  --color-rule-strong: #b8bcae;
-  --color-carbon: #233c8c;
-  --color-carbon-deep: #182b69;
-  --color-carbon-tint: #e7eaf7;
-  --color-success: #0e6b3d;
-  --color-success-tint: #e4f1e9;
-  --color-danger: #a32b23;
-  --color-danger-tint: #f7e7e4;
-  --color-warning: #8a5a06;
-  --color-warning-tint: #f6eddb;
+  --color-paper-deep: #f8f9f5;
+  --color-ink: #111411;
+  --color-ink-soft: #555c52;
+  --color-ink-faint: #858c81;
+  --color-rule: #d7dad0;
+  --color-rule-strong: #bac0b2;
+  --color-carbon: #1e3a8a;
+  --color-carbon-deep: #162863;
+  --color-carbon-tint: #eaf0fc;
+  --color-success: #0b6838;
+  --color-success-tint: #e6f4ec;
+  --color-danger: #a2241b;
+  --color-danger-tint: #faeae8;
+  --color-warning: #875504;
+  --color-warning-tint: #faf0da;
 
-  --font-sans: 'Golos Text Variable', 'Golos Text', 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', 'Cascadia Mono', monospace;
+  --font-sans: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'SF Pro Display', 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-numbers: 'SF Pro Rounded', 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'SF Mono', Monaco, monospace;
 }
 
 :root[data-theme='dark'] {
-  --color-counter: #141713;
-  --color-counter-deep: #0f120e;
-  --color-paper: #1c201b;
-  --color-paper-deep: #23281f;
-  --color-ink: #e9ece2;
-  --color-ink-soft: #a4ac9e;
-  --color-ink-faint: #7c857a;
-  --color-rule: #333a30;
-  --color-rule-strong: #4a5346;
-  --color-carbon: #8fa3f5;
-  --color-carbon-deep: #aebdfa;
-  --color-carbon-tint: #242c4a;
-  --color-success: #64c68f;
-  --color-success-tint: #1b3326;
-  --color-danger: #ef8a80;
-  --color-danger-tint: #3a211e;
-  --color-warning: #ddb05e;
-  --color-warning-tint: #362c18;
+  --color-counter: #121412;
+  --color-counter-deep: #0d0f0c;
+  --color-paper: #1a1e19;
+  --color-paper-deep: #212620;
+  --color-ink: #f0f2eb;
+  --color-ink-soft: #a6aea0;
+  --color-ink-faint: #7a8377;
+  --color-rule: #30372d;
+  --color-rule-strong: #464f42;
+  --color-carbon: #8fa5fa;
+  --color-carbon-deep: #b2c2fc;
+  --color-carbon-tint: #232c4d;
+  --color-success: #63c990;
+  --color-success-tint: #183525;
+  --color-danger: #f28b81;
+  --color-danger-tint: #3b201d;
+  --color-warning: #e0b460;
+  --color-warning-tint: #382c16;
   color-scheme: dark;
 }
 
@@ -135,10 +216,15 @@
 
 @layer utilities {
   .num {
-    font-family: var(--font-mono);
+    font-family: var(--font-numbers);
     font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum' 1, 'zero' 1;
-    letter-spacing: -0.02em;
+    font-feature-settings: 'tnum' 1;
+    letter-spacing: -0.015em;
+  }
+
+  .font-apple-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.025em;
   }
 
   .tracking-tighter {

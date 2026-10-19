@@ -627,6 +627,15 @@ export async function demoInvoke<T>(cmd: string, args: Record<string, any> = {})
       return undefined as T;
     }
 
+    case 'close_cart': {
+      requireSession(db, args.token);
+      const cartId = Number(args.cartId ?? args.cart_id);
+      db.cartItems = db.cartItems.filter((i) => i.cart_id !== cartId);
+      db.carts = db.carts.filter((c) => c.id !== cartId);
+      save();
+      return undefined as T;
+    }
+
     case 'park_cart': {
       requireSession(db, args.token);
       const cartId = Number(args.cartId ?? args.cart_id);
@@ -978,8 +987,12 @@ export async function demoInvoke<T>(cmd: string, args: Record<string, any> = {})
       return ['XP-80C (USB)', 'EPSON TM-T20III', 'Microsoft Print to PDF'] as T;
 
     case 'print_receipt':
+    case 'print_x_report':
     case 'open_cash_drawer':
       return undefined as T;
+
+    case 'create_desktop_shortcut':
+      return 'Ярлык на рабочем столе успешно создан' as T;
 
     case 'get_all_settings':
       return { ...db.settings } as T;

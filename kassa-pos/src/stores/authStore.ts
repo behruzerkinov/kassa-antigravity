@@ -10,6 +10,9 @@ interface AuthState {
   isLocked: boolean;
   isAuthenticated: boolean;
   openSmena: Smena | null;
+  logoutConfirmOpen: boolean;
+  setLogoutConfirmOpen: (open: boolean) => void;
+  requestLogout: () => void;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   validateSession: () => Promise<boolean>;
@@ -27,6 +30,10 @@ export const useAuthStore = create<AuthState>()(
       isLocked: false,
       isAuthenticated: false,
       openSmena: null,
+      logoutConfirmOpen: false,
+
+      setLogoutConfirmOpen: (logoutConfirmOpen) => set({ logoutConfirmOpen }),
+      requestLogout: () => set({ logoutConfirmOpen: true }),
 
       login: async (username, password) => {
         const res = await invoke<LoginResponse>('login', { username, password });

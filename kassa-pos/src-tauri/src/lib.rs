@@ -42,6 +42,7 @@ pub fn run() {
             cart::update_cart_item_qty,
             cart::remove_cart_item,
             cart::clear_cart,
+            cart::close_cart,
             cart::park_cart,
             cart::resume_cart,
             cart::get_parked_carts,
@@ -66,7 +67,9 @@ pub fn run() {
             
             printing::list_printers,
             printing::print_receipt,
+            printing::print_x_report,
             printing::open_cash_drawer,
+            printing::create_desktop_shortcut,
             
             settings::get_all_settings,
             settings::update_setting,

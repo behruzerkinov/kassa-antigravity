@@ -190,6 +190,15 @@ pub fn clear_cart(token: String, cart_id: i64, state: State<'_, DbState>) -> Res
 }
 
 #[tauri::command]
+pub fn close_cart(token: String, cart_id: i64, state: State<'_, DbState>) -> Result<(), String> {
+    let conn = state.pool.get().map_err(|e| e.to_string())?;
+    let _ = get_session_cashier(&conn, &token)?;
+    conn.execute("DELETE FROM cart_items WHERE cart_id = ?1", rusqlite::params![cart_id]).map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM carts WHERE id = ?1", rusqlite::params![cart_id]).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 pub fn park_cart(token: String, cart_id: i64, name: String, state: State<'_, DbState>) -> Result<(), String> {
     let conn = state.pool.get().map_err(|e| e.to_string())?;
     let (cashier_id, _) = get_session_cashier(&conn, &token)?;
