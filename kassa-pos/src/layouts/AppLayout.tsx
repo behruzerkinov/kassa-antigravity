@@ -9,13 +9,14 @@ import { SettingsPanel } from '../components/SettingsPanel';
 import { SmenaControls } from '../components/SmenaControls';
 import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
 import { PaymentModal, type PaymentMethod } from '../pages/PaymentModal';
+import { NumpadPanel } from '../components/NumpadPanel';
 import { useAuthStore } from '../stores/authStore';
 import { useCartStore } from '../stores/cartStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useSyncStore } from '../stores/syncStore';
 import { cn } from '../lib/utils';
 
-type Panel = 'receipt' | 'receipts' | 'settings';
+type Panel = 'numpad' | 'receipts' | 'settings';
 
 export function AppLayout() {
   const { t } = useTranslation();
@@ -24,7 +25,7 @@ export function AppLayout() {
   const { lockTime } = useSettingsStore();
   const { refresh: refreshSync } = useSyncStore();
 
-  const [panel, setPanel] = useState<Panel>('receipt');
+  const [panel, setPanel] = useState<Panel>('numpad');
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [smenaOpen, setSmenaOpen] = useState(false);
@@ -82,7 +83,7 @@ export function AppLayout() {
   );
 
   const tabs: Array<{ id: Panel; label: string; count?: number }> = [
-    { id: 'receipt', label: t('shell.tab_receipt') },
+    { id: 'numpad', label: t('shell.tab_numpad') },
     { id: 'receipts', label: t('shell.tab_receipts') },
     { id: 'settings', label: t('shell.tab_settings') },
   ];
@@ -123,7 +124,7 @@ export function AppLayout() {
           </div>
 
           <div id={`panel-${panel}`} role="tabpanel" className="min-h-0 flex-1">
-            {panel === 'receipt' && <ReceiptTape cart={activeCart} />}
+            {panel === 'numpad' && <NumpadPanel cart={activeCart} onRequestPayment={requestPayment} />}
             {panel === 'receipts' && <ReceiptsPanel key={receiptsVersion} />}
             {panel === 'settings' && <SettingsPanel />}
           </div>

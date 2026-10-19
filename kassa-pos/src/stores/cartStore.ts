@@ -10,6 +10,8 @@ interface CartState {
   parkedCarts: Cart[];
   activeCartIndex: number;
   activeCart: CartWithItems | null;
+  selectedItemId: number | null;
+  setSelectedItemId: (id: number | null) => void;
   createCart: () => Promise<Cart>;
   addToCart: (barcode: string) => Promise<CartItem>;
   updateItemQty: (itemId: number, qty: number) => Promise<void>;
@@ -36,6 +38,9 @@ export const useCartStore = create<CartState>((set, get) => ({
   parkedCarts: [],
   activeCartIndex: 0,
   activeCart: null,
+  selectedItemId: null,
+
+  setSelectedItemId: (selectedItemId) => set({ selectedItemId }),
 
   createCart: async () => {
     const cart = await invoke<Cart>('create_cart', { token: getToken() });
@@ -51,11 +56,13 @@ export const useCartStore = create<CartState>((set, get) => ({
       cartId: activeCart.cart.id,
       barcode,
     });
+    set({ selectedItemId: item.id });
     await get().refreshCarts();
     return item;
   },
 
   updateItemQty: async (itemId, qty) => {
+    set({ selectedItemId: itemId });
     await invoke('update_cart_item_qty', { token: getToken(), itemId, qty });
     await get().refreshCarts();
   },
@@ -102,9 +109,12 @@ export const useCartStore = create<CartState>((set, get) => ({
 
   setActiveTab: (index) => {
     const carts = get().carts;
+    const active = carts[index] ?? null;
+    const selectedId = active?.items[active.items.length - 1]?.id ?? null;
     set({
       activeCartIndex: index,
-      activeCart: carts[index] ?? null,
+      activeCart: active,
+      selectedItemId: selectedId,
     });
   },
 
@@ -146,10 +156,21 @@ export const useCartStore = create<CartState>((set, get) => ({
     if (activeIndex >= carts.length) activeIndex = Math.max(0, carts.length - 1);
     if (activeIndex < 0) activeIndex = 0;
 
+    const currentActive = carts[activeIndex] ?? null;
+    let selectedId = get().selectedItemId;
+    if (currentActive && currentActive.items.length > 0) {
+      if (!selectedId || !currentActive.items.some((i) => i.id === selectedId)) {
+        selectedId = currentActive.items[currentActive.items.length - 1].id;
+      }
+    } else {
+      selectedId = null;
+    }
+
     set({
       carts,
       activeCartIndex: activeIndex,
-      activeCart: carts[activeIndex] ?? null,
+      activeCart: currentActive,
+      selectedItemId: selectedId,
     });
   },
 

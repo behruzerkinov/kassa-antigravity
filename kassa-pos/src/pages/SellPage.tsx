@@ -36,6 +36,8 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
     activeCart,
     activeCartIndex,
     parkedCarts,
+    selectedItemId,
+    setSelectedItemId,
     setActiveTab,
     createCart,
     addToCart,
@@ -68,12 +70,43 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
   const searchRef = useRef<HTMLInputElement>(null);
 
   const focusScanner = useCallback(() => {
-    window.setTimeout(() => scannerRef.current?.focus(), 30);
+    window.setTimeout(() => {
+      const active = document.activeElement;
+      if (
+        active &&
+        (active.tagName === 'INPUT' ||
+          active.tagName === 'TEXTAREA' ||
+          active.closest('[role="dialog"]')) &&
+        active !== scannerRef.current
+      ) {
+        return;
+      }
+      scannerRef.current?.focus();
+    }, 40);
   }, []);
 
   useEffect(() => {
     focusScanner();
   }, [activeCartIndex, focusScanner]);
+
+  useEffect(() => {
+    const handleDocumentClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (
+        target.closest('input') ||
+        target.closest('textarea') ||
+        target.closest('button') ||
+        target.closest('[role="dialog"]') ||
+        target.closest('[role="tab"]')
+      ) {
+        return;
+      }
+      focusScanner();
+    };
+    document.addEventListener('pointerup', handleDocumentClick);
+    return () => document.removeEventListener('pointerup', handleDocumentClick);
+  }, [focusScanner]);
 
   useEffect(() => {
     invoke<Product[]>('search_products', { query: '' })
@@ -139,6 +172,29 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
     },
     [activeCart, addToCart, createCart, focusScanner, t, toast],
   );
+
+  const handleLoadDemoProducts = useCallback(async () => {
+    try {
+      setBusy(true);
+      const count = await invoke<number>('load_demo_products');
+      toast({
+        title: 'Демо-товары загружены',
+        description: `Добавлено позиций: ${count}. Весовой товар: 2700001012503`,
+        variant: 'success',
+      });
+      const list = await invoke<Product[]>('search_products', { query: '' });
+      setQuickProducts(list.slice(0, 9));
+      focusScanner();
+    } catch (error) {
+      toast({
+        title: 'Ошибка загрузки демо-товаров',
+        description: errorMessage(error),
+        variant: 'destructive',
+      });
+    } finally {
+      setBusy(false);
+    }
+  }, [focusScanner, toast]);
 
   const handleScan = (event: React.FormEvent) => {
     event.preventDefault();
@@ -257,9 +313,18 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
       <div className="shrink-0 border-b border-rule bg-paper px-4 pb-3 pt-4">
         <div className="flex gap-3">
           <form onSubmit={handleScan} className="min-w-0 flex-[1.35]">
-            <label htmlFor="scan-input" className="mb-1.5 block text-[12px] font-medium text-ink-soft">
-              {t('sell.scan_label')}
-            </label>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label htmlFor="scan-input" className="block text-[12px] font-medium text-ink-soft">
+                {t('sell.scan_label')}
+              </label>
+              <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span>Сканер готов</span>
+              </span>
+            </div>
             <div className="relative">
               <ScanLine
                 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint"
@@ -466,7 +531,16 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
             </p>
 
             <div className="mt-7 border-t border-rule pt-3">
-              <h2 className="text-[12px] font-medium text-ink-soft">{t('sell.quick_add')}</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-[12px] font-medium text-ink-soft">{t('sell.quick_add')}</h2>
+                <button
+                  type="button"
+                  onClick={() => void handleLoadDemoProducts()}
+                  className="text-[11px] font-medium text-ink-soft hover:text-ink underline underline-offset-2 transition-colors cursor-pointer"
+                >
+                  Загрузить демо-товары
+                </button>
+              </div>
               <div className="mt-3 grid grid-cols-2 gap-px border border-rule bg-rule xl:grid-cols-3">
                 {quickProducts.map((product) => (
                   <button
@@ -498,99 +572,126 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
             </div>
 
             <ul>
-              {items.map((item) => (
-                <li
-                  key={item.id}
-                  className={cn(
-                    'grid min-h-14 grid-cols-[minmax(0,1fr)_88px_136px_104px_72px] items-center gap-3 border-b border-rule px-4 py-2 transition-colors hover:bg-paper-deep',
-                    recentItemId === item.id && 'animate-print',
-                  )}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-[14px] text-ink">{item.name}</p>
-                    <p className="num mt-0.5 flex items-center gap-2 text-[10px] text-ink-faint">
-                      <span className="truncate">{item.barcode}</span>
-                      {item.discount_type && (
-                        <span className="shrink-0 text-warning">
-                          {item.discount_type === 'percentage'
-                            ? `−${item.discount_value}%`
-                            : `−${formatPrice(item.discount_value ?? 0)}`}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-
-                  <span className="num text-right text-[13px] text-ink">{formatPrice(item.price)}</span>
-
-                  <div className="flex items-center justify-center">
-                    {item.is_weighted ? (
-                      <span className="num text-[13px] text-ink-soft">
-                        {formatQty(item.qty)} кг
-                      </span>
-                    ) : (
-                      <div className="flex items-center border border-rule-strong">
-                        <button
-                          type="button"
-                          aria-label={t('sell.decrease')}
-                          onClick={() => void handleQty(item, item.qty - 1)}
-                          disabled={item.qty <= 1}
-                          className="flex h-10 w-10 items-center justify-center text-ink-soft transition-colors hover:bg-counter hover:text-ink disabled:opacity-35"
-                        >
-                          <Minus className="h-3.5 w-3.5" strokeWidth={2} />
-                        </button>
-                        <span className="num flex h-10 w-11 items-center justify-center border-x border-rule text-[13px] text-ink">
-                          {formatQty(item.qty)}
-                        </span>
-                        <button
-                          type="button"
-                          aria-label={t('sell.increase')}
-                          onClick={() => void handleQty(item, item.qty + 1)}
-                          className="flex h-10 w-10 items-center justify-center text-ink-soft transition-colors hover:bg-counter hover:text-ink"
-                        >
-                          <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <span className="num text-right text-[15px] font-medium tracking-tight text-ink">
-                    {formatPrice(item.final_price)}
-                  </span>
-
-                  <div className="flex items-center justify-end">
-                    <button
-                      type="button"
-                      aria-label={t('sell.line_discount')}
-                      title={t('sell.line_discount')}
-                      onClick={() =>
-                        setDiscountTarget({
-                          kind: 'item',
-                          item,
-                          name: item.name,
-                          currentType: item.discount_type,
-                          currentValue: item.discount_value,
-                          hasDiscount: Boolean(item.discount_type),
-                        })
+              {items.map((item) => {
+                const isSelected = selectedItemId === item.id;
+                return (
+                  <li
+                    key={item.id}
+                    role="row"
+                    tabIndex={0}
+                    aria-selected={isSelected}
+                    onClick={() => setSelectedItemId(item.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        setSelectedItemId(item.id);
                       }
-                      className={cn(
-                        'flex h-9 w-9 items-center justify-center transition-colors hover:bg-counter hover:text-carbon',
-                        item.discount_type ? 'text-warning' : 'text-ink-faint',
+                    }}
+                    className={cn(
+                      'group relative grid min-h-14 grid-cols-[minmax(0,1fr)_88px_136px_104px_72px] items-center gap-3 border-b border-rule px-4 py-2 cursor-pointer transition-all outline-none',
+                      isSelected
+                        ? 'bg-carbon-tint/40 dark:bg-carbon-tint/25 border-l-[3.5px] border-l-carbon shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]'
+                        : 'hover:bg-paper-deep border-l-[3.5px] border-l-transparent',
+                      recentItemId === item.id && 'animate-print',
+                    )}
+                  >
+                    <div className="min-w-0">
+                      <p className={cn('truncate text-[14px]', isSelected ? 'font-medium text-ink' : 'text-ink')}>
+                        {item.name}
+                      </p>
+                      <p className="num mt-0.5 flex items-center gap-2 text-[10px] text-ink-faint">
+                        <span className="truncate">{item.barcode}</span>
+                        {item.discount_type && (
+                          <span className="shrink-0 font-medium text-warning">
+                            {item.discount_type === 'percentage'
+                              ? `−${item.discount_value}%`
+                              : `−${formatPrice(item.discount_value ?? 0)}`}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    <span className="num text-right text-[13px] text-ink">{formatPrice(item.price)}</span>
+
+                    <div className="flex items-center justify-center">
+                      {item.is_weighted ? (
+                        <span className="num text-[13px] text-ink-soft">
+                          {formatQty(item.qty)} кг
+                        </span>
+                      ) : (
+                        <div className="flex items-center border border-rule-strong bg-paper">
+                          <button
+                            type="button"
+                            aria-label={t('sell.decrease')}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleQty(item, item.qty - 1);
+                            }}
+                            disabled={item.qty <= 1}
+                            className="flex h-10 w-10 items-center justify-center text-ink-soft transition-colors hover:bg-counter hover:text-ink disabled:opacity-35"
+                          >
+                            <Minus className="h-3.5 w-3.5" strokeWidth={2} />
+                          </button>
+                          <span className="num flex h-10 w-11 items-center justify-center border-x border-rule text-[13px] text-ink font-medium">
+                            {formatQty(item.qty)}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label={t('sell.increase')}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleQty(item, item.qty + 1);
+                            }}
+                            className="flex h-10 w-10 items-center justify-center text-ink-soft transition-colors hover:bg-counter hover:text-ink"
+                          >
+                            <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+                          </button>
+                        </div>
                       )}
-                    >
-                      <Percent className="h-3.5 w-3.5" strokeWidth={1.75} />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={t('sell.remove_item')}
-                      title={t('sell.remove_item')}
-                      onClick={() => setRemoveTarget(item)}
-                      className="flex h-9 w-9 items-center justify-center text-ink-faint transition-colors hover:bg-danger-tint hover:text-danger"
-                    >
-                      <X className="h-4 w-4" strokeWidth={1.75} />
-                    </button>
-                  </div>
-                </li>
-              ))}
+                    </div>
+
+                    <span className="num text-right text-[15px] font-semibold tracking-tight text-ink">
+                      {formatPrice(item.final_price)}
+                    </span>
+
+                    <div className="flex items-center justify-end">
+                      <button
+                        type="button"
+                        aria-label={t('sell.line_discount')}
+                        title={t('sell.line_discount')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDiscountTarget({
+                            kind: 'item',
+                            item,
+                            name: item.name,
+                            currentType: item.discount_type,
+                            currentValue: item.discount_value,
+                            hasDiscount: Boolean(item.discount_type),
+                          });
+                        }}
+                        className={cn(
+                          'flex h-9 w-9 items-center justify-center transition-colors hover:bg-counter hover:text-carbon',
+                          item.discount_type ? 'text-warning' : 'text-ink-faint',
+                        )}
+                      >
+                        <Percent className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={t('sell.remove_item')}
+                        title={t('sell.remove_item')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRemoveTarget(item);
+                        }}
+                        className="flex h-9 w-9 items-center justify-center text-ink-faint transition-colors hover:bg-danger-tint hover:text-danger"
+                      >
+                        <X className="h-4 w-4" strokeWidth={1.75} />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}

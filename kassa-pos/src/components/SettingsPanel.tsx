@@ -65,29 +65,44 @@ export function SettingsPanel() {
     void invoke('update_setting', { key, value }).catch(() => undefined);
   };
 
-  const loadPrinters = useCallback(async () => {
+  const loadPrinters = useCallback(async (isManual = false) => {
     setLoadingPrinters(true);
     try {
       const list = await invoke<string[]>('list_printers');
-      setPrinters(list);
-      if (!settings.printerName && list[0]) {
-        settings.setPrinterName(list[0]);
-        saveSetting('printer_name', list[0]);
+      const safeList = Array.isArray(list) ? list : [];
+      setPrinters(safeList);
+      if (!settings.printerName && safeList[0]) {
+        settings.setPrinterName(safeList[0]);
+        saveSetting('printer_name', safeList[0]);
+      }
+      if (isManual) {
+        if (safeList.length === 0) {
+          toast({
+            title: 'Принтеры не обнаружены',
+            description: 'Подключите чековый принтер по USB или настройте сетевой принтер',
+          });
+        } else {
+          toast({
+            title: 'Список принтеров обновлён',
+            description: `Найдено устройств: ${safeList.length}`,
+          });
+        }
       }
     } catch (error) {
-      toast({
-        title: t('settings.printer_error'),
-        description: errorMessage(error),
-        variant: 'destructive',
-      });
+      if (isManual) {
+        toast({
+          title: t('settings.printer_error'),
+          description: errorMessage(error),
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoadingPrinters(false);
     }
   }, [settings, t, toast]);
 
   useEffect(() => {
-    void loadPrinters();
-    // Load once when the panel first opens.
+    void loadPrinters(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -184,7 +199,7 @@ export function SettingsPanel() {
             <SectionTitle>{t('settings.printer')}</SectionTitle>
             <button
               type="button"
-              onClick={() => void loadPrinters()}
+              onClick={() => void loadPrinters(true)}
               disabled={loadingPrinters}
               aria-label={t('settings.refresh')}
               className="flex h-8 w-8 items-center justify-center text-ink-soft hover:bg-counter hover:text-ink"
@@ -287,12 +302,23 @@ export function SettingsPanel() {
           </div>
 
           <div className="mt-3 flex items-center justify-between gap-3">
-            <p className="text-[12px] text-ink">{t('settings.autostart')}</p>
+            <div>
+              <p className="text-[12px] text-ink">{t('settings.autostart')}</p>
+              <p className="text-[10px] text-ink-faint">Запуск Kassa при старте Windows</p>
+            </div>
             <Switch
               checked={settings.autostart}
-              onCheckedChange={(checked) => {
+              onCheckedChange={async (checked) => {
                 settings.setAutostart(checked);
                 saveSetting('autostart', String(checked));
+                try {
+                  await invoke('set_windows_autostart', { enabled: checked });
+                  toast({
+                    title: checked ? 'Автозагрузка включена' : 'Автозагрузка отключена',
+                  });
+                } catch (err) {
+                  console.error('Failed to set autostart in Windows registry', err);
+                }
               }}
               aria-label={t('settings.autostart')}
             />
@@ -368,6 +394,60 @@ export function SettingsPanel() {
               </Button>
             </div>
           )}
+        </section>
+
+        <section className="border-b border-rule px-4 py-3.5">
+          <SectionTitle>Тестовые демо-товары</SectionTitle>
+          <p className="mt-1 text-[11px] leading-relaxed text-ink-soft">
+            Загружает 12 изолированных позиций (хлеб, напитки, сладости, весовые яблоки) для безопасного тестирования чеков без синхронизации с боевым каталогом.
+          </p>
+          <div className="mt-2.5 flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1"
+              onClick={async () => {
+                try {
+                  const count = await invoke<number>('load_demo_products');
+                  toast({
+                    title: 'Демо-товары загружены',
+                    description: `Добавлено товаров: ${count}. Весовой штрихкод: 2700001012503`,
+                    variant: 'success',
+                  });
+                } catch (err) {
+                  toast({
+                    title: 'Ошибка',
+                    description: errorMessage(err),
+                    variant: 'destructive',
+                  });
+                }
+              }}
+            >
+              Загрузить товары
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-danger hover:bg-danger-tint hover:text-danger"
+              onClick={async () => {
+                try {
+                  const count = await invoke<number>('clear_demo_products');
+                  toast({
+                    title: 'Демо-товары очищены',
+                    description: `Удалено записей: ${count}`,
+                  });
+                } catch (err) {
+                  toast({
+                    title: 'Ошибка',
+                    description: errorMessage(err),
+                    variant: 'destructive',
+                  });
+                }
+              }}
+            >
+              Очистить
+            </Button>
+          </div>
         </section>
 
         {!isDesktop() && (

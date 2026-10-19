@@ -4,26 +4,56 @@ use std::process::Command;
 
 #[tauri::command]
 pub fn list_printers(_state: State<'_, DbState>) -> Result<Vec<String>, String> {
-    let output = Command::new("wmic")
-        .args(["printer", "get", "name"])
-        .output()
-        .map_err(|e| format!("Failed to run wmic: {}", e))?;
+    #[cfg(target_os = "windows")]
+    {
+        // Enumerate printers via PowerShell Get-CimInstance (or Get-Printer fallback).
+        // Works on all modern Windows versions (Windows 10, 11 24H2+, Windows Server 2022/2025)
+        // where legacy `wmic` has been permanently removed by Microsoft.
+        let ps_script = r#"
+            $res = @()
+            try {
+                $printers = Get-CimInstance -ClassName Win32_Printer -ErrorAction Stop
+                $def = ($printers | Where-Object { $_.Default -eq $true } | Select-Object -First 1).Name
+                if ($def) { $res += $def }
+                foreach ($p in $printers) {
+                    if ($p.Name -and $p.Name -ne $def) { $res += $p.Name }
+                }
+            } catch {
+                try {
+                    $res = Get-Printer | Select-Object -ExpandProperty Name
+                } catch {
+                    $res = @()
+                }
+            }
+            $res | ForEach-Object { if ($_) { [Console]::WriteLine($_) } }
+        "#;
 
-    if !output.status.success() {
-        return Err("wmic command failed".into());
-    }
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", ps_script])
+            .output();
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut printers = Vec::new();
-    
-    for line in stdout.lines().skip(1) {
-        let name = line.trim();
-        if !name.is_empty() {
-            printers.push(name.to_string());
+        match output {
+            Ok(out) => {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                let mut printers: Vec<String> = stdout
+                    .lines()
+                    .map(|l| l.trim().to_string())
+                    .filter(|l| !l.is_empty())
+                    .collect();
+
+                printers.dedup();
+                Ok(printers)
+            }
+            Err(e) => {
+                eprintln!("Printer discovery warning: {}", e);
+                Ok(Vec::new())
+            }
         }
     }
-
-    Ok(printers)
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(Vec::new())
+    }
 }
 
 #[tauri::command]
@@ -70,3 +100,36 @@ pub fn create_desktop_shortcut() -> Result<String, String> {
         Ok("Shortcuts only supported on Windows".into())
     }
 }
+
+#[tauri::command]
+pub fn set_windows_autostart(enabled: bool) -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let exe_path = std::env::current_exe().map_err(|e| e.to_string())?;
+        let exe_str = exe_path.to_string_lossy().to_string();
+        let script = if enabled {
+            format!(
+                "Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name 'KassaPOS' -Value '\"{}\"'",
+                exe_str.replace('\'', "''")
+            )
+        } else {
+            "Remove-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name 'KassaPOS' -ErrorAction SilentlyContinue".to_string()
+        };
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output()
+            .map_err(|e| format!("PowerShell error: {}", e))?;
+
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("Failed to update autostart: {}", err));
+        }
+        Ok(if enabled { "Autostart enabled".into() } else { "Autostart disabled".into() })
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = enabled;
+        Ok("Autostart only supported on Windows".into())
+    }
+}
+

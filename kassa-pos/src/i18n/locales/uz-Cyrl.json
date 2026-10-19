@@ -14,6 +14,7 @@
   "shell": {
     "demo": "демо",
     "tabs": "Касса бўлимлари",
+    "tab_numpad": "Нумпад",
     "tab_receipt": "Чек",
     "tab_receipts": "Чеклар",
     "tab_settings": "Созламалар",

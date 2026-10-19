@@ -36,6 +36,8 @@ pub fn run() {
             products::search_products,
             products::get_product_by_barcode,
             products::parse_weighted_barcode,
+            products::load_demo_products,
+            products::clear_demo_products,
             
             cart::create_cart,
             cart::add_to_cart,
@@ -70,6 +72,7 @@ pub fn run() {
             printing::print_x_report,
             printing::open_cash_drawer,
             printing::create_desktop_shortcut,
+            printing::set_windows_autostart,
             
             settings::get_all_settings,
             settings::update_setting,

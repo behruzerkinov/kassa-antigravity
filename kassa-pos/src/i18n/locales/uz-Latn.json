@@ -14,6 +14,7 @@
   "shell": {
     "demo": "demo",
     "tabs": "Kassa bo'limlari",
+    "tab_numpad": "Numpad",
     "tab_receipt": "Chek",
     "tab_receipts": "Cheklar",
     "tab_settings": "Sozlamalar",

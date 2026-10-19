@@ -90,3 +90,60 @@ pub fn parse_weighted_barcode(barcode: String, state: State<'_, DbState>) -> Res
     
     Ok(None)
 }
+
+#[tauri::command]
+pub fn load_demo_products(state: State<'_, DbState>) -> Result<usize, String> {
+    let conn = state.pool.get().map_err(|e| e.to_string())?;
+
+    // Idempotent deterministic demo product seed
+    // Tagged clearly with category = 'DEMO_*' so they are isolated from production sync
+    let demo_items = vec![
+        ("4780000100018", "Кока-Кола 0.5л Classic", 7000.0, 150.0, "шт", "DEMO_Напитки", 0, Some(12.0)),
+        ("4780000100025", "Вода минеральная Hydrolife 1.5л", 4000.0, 200.0, "шт", "DEMO_Напитки", 0, Some(12.0)),
+        ("4780000100032", "Хлеб формовой Буханка", 3000.0, 50.0, "шт", "DEMO_Выпечка", 0, None),
+        ("4780000100049", "Лепёшка тандырная Самарканд", 5000.0, 40.0, "шт", "DEMO_Выпечка", 0, None),
+        ("4780000100056", "Молоко Musaffo 3.2% 1л", 14000.0, 80.0, "шт", "DEMO_Молочные", 0, Some(12.0)),
+        ("4780000100063", "Сыр Российский 45% 200г", 28000.0, 35.0, "шт", "DEMO_Молочные", 0, Some(12.0)),
+        ("4780000100070", "Шоколад Alpen Gold молочный", 12500.0, 95.0, "шт", "DEMO_Сладости", 0, Some(12.0)),
+        ("4780000100087", "Чай черный Ahmad Tea Ceylon 100г", 22000.0, 60.0, "шт", "DEMO_Бакалея", 0, Some(12.0)),
+        ("4780000100094", "Масло подсолнечное Щедрое Лето 1л", 18500.0, 45.0, "шт", "DEMO_Бакалея", 0, Some(12.0)),
+        ("4780000100100", "Рис лазер премиум 1кг", 26000.0, 70.0, "шт", "DEMO_Бакалея", 0, None),
+        // Weighted items: prefix 27: 2700001 for Apples, 2700002 for Bananas
+        ("2700001000000", "Яблоки Голден (весовые)", 16000.0, 120.0, "кг", "DEMO_Фрукты", 1, None),
+        ("2700002000000", "Бананы Эквадор (весовые)", 22000.0, 85.0, "кг", "DEMO_Фрукты", 1, None),
+    ];
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut inserted = 0;
+
+    for (barcode, name, price, stock, unit, cat, is_weighted, vat) in demo_items {
+        let res = conn.execute(
+            "INSERT INTO products (barcode, name, price, stock_qty, unit, category, is_weighted, vat, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+             ON CONFLICT(barcode) DO UPDATE SET
+               name = excluded.name,
+               price = excluded.price,
+               stock_qty = excluded.stock_qty,
+               unit = excluded.unit,
+               category = excluded.category,
+               is_weighted = excluded.is_weighted,
+               vat = excluded.vat,
+               updated_at = excluded.updated_at",
+            rusqlite::params![barcode, name, price, stock, unit, cat, is_weighted, vat, now],
+        );
+        if res.is_ok() {
+            inserted += 1;
+        }
+    }
+
+    Ok(inserted)
+}
+
+#[tauri::command]
+pub fn clear_demo_products(state: State<'_, DbState>) -> Result<usize, String> {
+    let conn = state.pool.get().map_err(|e| e.to_string())?;
+    let count = conn.execute("DELETE FROM products WHERE category LIKE 'DEMO%'", [])
+        .map_err(|e| e.to_string())?;
+    Ok(count)
+}
+

@@ -1,75 +1,94 @@
-# Kassa POS
+# Kassa POS (v1.0.4)
 
-Offline-first point-of-sale desktop app for a Windows till: Rust + Tauri v2
-backend, React 19 + TypeScript frontend, SQLite for local data.
+Offline-first Point-of-Sale (POS) desktop application designed for Windows cashiers:
+- **Core Stack**: Rust + Tauri v2 backend, React 19 + TypeScript frontend, SQLite (via rusqlite & r2d2) for high-performance offline local storage.
+- **Design System**: Human-centered retail cashier workflow inspired by Apple SF Pro typography, rich contrast, tactile feedback, and keyboard/touch navigation.
 
-The interface was rebuilt around the way a till is actually used — a scan field,
-a ledger, a giant total, and a printed customer receipt on the right. The
-reasoning is in [DESIGN.md](DESIGN.md); the command boundary and data model are
-in [ARCHITECTURE.md](ARCHITECTURE.md).
+---
 
-## Requirements
+## What's New in v1.0.4
 
-- Node 20+ and pnpm 10 (`corepack enable pnpm` or `npx pnpm@10`)
-- Rust toolchain and the Tauri prerequisites for Windows, for the desktop app
+1. **Fixed Printer Discovery at Source**:
+   - Replaced deprecated and missing `wmic` with native Windows spooler queries via PowerShell (`Get-CimInstance Win32_Printer` with `Get-Printer` fallback).
+   - Graceful startup: scans quietly in the background without throwing false "program not found" error toasts when printers are absent.
+   - Manual refresh in Settings provides clear, actionable feedback.
+2. **Reorganized Navigation Tab Layout**:
+   - Strictly ordered: **Numpad → Cheques (Чеки) → Settings (Настройки)**.
+   - Consolidated duplicate receipt concepts into a unified workflow.
+3. **Feature-Rich Cashier Numberpad**:
+   - Direct item quantity updates (`qty` mode with `+1`, `-1`, `×2`, `×5` steps).
+   - Item discounts (percentage `%` and fixed value `UZS`).
+   - Cash tender calculator with quick denominations (10k, 20k, 50k, 100k, 200k UZS).
+4. **Cart Row Selection & Last-Added Feedback**:
+   - Subtle tinted background (`bg-carbon-tint/40`) + left accent indicator bar (`border-l-[3.5px] border-l-carbon`).
+   - Clicking a cart row selects it without changing quantity or deleting it.
+   - Newly scanned items and incremented items are automatically selected.
+5. **Scanner Focus Policy**:
+   - Automatic focus returned to scanner input on page load and after every scan.
+   - Smart guard prevents stealing focus when deliberately typing into search fields, editing inputs, or inside dialogs.
+   - Visual green pulse dot indicates scanner readiness.
+6. **Cashier Profile & Balance Top-up**:
+   - Cashier profile popover displaying employee ID, register identity, and account balance.
+   - Top-up gateway selector for **Click, Payme, Paynet, and Uzum**.
+   - **Payment Integrity**: clearly documents missing merchant credentials without simulating fake balance increases.
+7. **Deterministic Demo Catalog**:
+   - Idempotent seed containing 12 realistic grocery and beverage items.
+   - Includes weighted items (e.g. barcode `2700001012503` for 1.25 kg of Golden Apples).
+   - Safely isolated under `DEMO_*` category to prevent syncing to production Firestore.
+8. **Dual Windows Release Assets & Installer Options**:
+   - `kassa_installer.exe`: NSIS installer with desktop shortcut and Windows startup options.
+   - `kassa_portable.exe`: Standalone portable executable.
 
-## Run the desktop app
+---
 
+## Installation & Packaging Variants
+
+### 1. Standard Installer (`kassa_installer.exe`)
+- Standard Windows setup wizard (NSIS) supporting both current user and per-machine installs.
+- Installs to `AppData\Local\Programs\Kassa POS`.
+- Creates desktop shortcut and start menu folder (`Kassa POS`).
+- Provides opt-in Windows autostart integration.
+- Clean uninstaller cleans up shortcuts and registry autostart keys.
+
+### 2. Portable Build (`kassa_portable.exe`)
+- Standalone single executable.
+- Does not require administrative privileges or installation.
+- Preserves local SQLite database safely across restarts in `%APPDATA%\com.kassa.pos\kassa.db`.
+- Requires WebView2 runtime (pre-installed on Windows 10/11).
+
+---
+
+## Local Setup & Development
+
+### Prerequisites
+- Node.js 20+ and pnpm 10 (`corepack enable pnpm`)
+- Rust toolchain (stable) for Windows (`cargo`, `rustc`)
+
+### Run in Development
 ```bash
-cd kassa-pos
-pnpm install
+# Frontend only (emulated mock backend for UI design testing)
+pnpm dev
+
+# Full Desktop App (Tauri v2 + Rust backend)
 pnpm tauri dev
 ```
 
-Seed login: `admin` / `1234`.
-
-## Run the interface in a browser (design review)
-
-The frontend is also explorable without Rust. In a plain browser it talks to a
-demo backend that emulates every Tauri command with the same payload shapes and
-persists its data in `localStorage`:
-
+### Build & Typecheck
 ```bash
-cd kassa-pos
-pnpm install
-pnpm dev          # http://localhost:1420
+pnpm exec tsc -b
+pnpm build
+pnpm tauri build
 ```
 
-Demo login: `admin` / `1234`. The demo seeds a product catalogue (including
-weighted items with barcodes such as `2700001005000` for 0.5 kg of Olma),
-clients with balances, and a day of receipts. Settings → Demo data resets it.
+---
 
-The `демо` badge in the titlebar, the demo credentials hint, and the reset
-button appear only outside Tauri.
+## Hardware & Printer Troubleshooting
 
-## Checks
+- **Thermal Receipt Printers (58mm / 80mm)**: USB and network printers installed in Windows Print Management are enumerated automatically.
+- If discovery fails or is empty: Ensure the printer driver is installed in Windows Settings → Printers & Scanners. No `wmic` dependency is required.
+- **Barcode Scanners**: Standard USB HID keyboard-wedge scanners work out of the box. Ensure the scanner transmits a carriage return (`Enter`) suffix.
 
-```bash
-pnpm exec tsc -b     # types
-pnpm build           # type-check and production bundle
-```
+---
 
-## Layout
-
-```
-kassa-pos/
-├── src/
-│   ├── lib/           types mirroring the Rust structs, the invoke wrapper, demo backend
-│   ├── stores/        zustand: auth/session, carts, shift, sync, settings
-│   ├── components/    shell, receipt tape, receipts, settings, shift, ui primitives
-│   ├── pages/         login, lock, sell workspace, payment sheet, returns
-│   ├── i18n/          ru, uz-Cyrl, uz-Latn copy decks
-│   └── styles/        design tokens and the paper/ledger utilities
-└── src-tauri/         Rust commands, SQLite schema, hardware boundary
-```
-
-## Known Milestone 1 limitations
-
-- Selling works fully offline; cloud sync is still a stub on the Rust side, so
-  completed sales stay marked `pending` until the sync worker exists. Closing a
-  shift is therefore blocked while receipts are pending, by design.
-- Card payment records the method; there is no terminal integration.
-- Printers are listed through `wmic` and `print_receipt` logs instead of
-  writing ESC/POS bytes.
-- Autostart and update checks are wired in the UI; the update check reports a
-  failure instead of pretending to succeed when the updater is not configured.
+## License & Credits
+Proprietary & Confidential. All rights reserved.

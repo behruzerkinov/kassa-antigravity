@@ -7,6 +7,7 @@ import { isDesktop } from '../lib/desktop';
 import { BarcodeMark } from './BarcodeMark';
 import { initials } from '../lib/utils';
 import { APP_VERSION } from '../lib/version';
+import { CashierProfileModal } from './CashierProfileModal';
 
 interface TitlebarProps {
   showAccount?: boolean;
@@ -16,6 +17,7 @@ export function Titlebar({ showAccount = false }: TitlebarProps) {
   const { t } = useTranslation();
   const { cashierName, lockScreen, requestLogout } = useAuthStore();
   const [isMaximized, setIsMaximized] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const desktop = isDesktop();
 
   useEffect(() => {
@@ -82,12 +84,17 @@ export function Titlebar({ showAccount = false }: TitlebarProps) {
 
       {showAccount && (
         <div className="no-drag flex items-stretch">
-          <div className="flex items-center gap-2 px-3 text-[12px] text-ink-soft">
+          <button
+            type="button"
+            onClick={() => setProfileOpen(true)}
+            title="Профиль кассира и баланс"
+            className="flex items-center gap-2 px-3 text-[12px] text-ink-soft transition-colors hover:bg-paper hover:text-ink cursor-pointer"
+          >
             <span className="flex h-5 w-5 items-center justify-center rounded-full border border-rule-strong bg-paper text-[9px] font-semibold text-ink">
               {initials(cashierName)}
             </span>
-            <span className="max-w-[140px] truncate text-ink">{cashierName}</span>
-          </div>
+            <span className="max-w-[140px] truncate font-medium text-ink">{cashierName}</span>
+          </button>
           <button
             type="button"
             onClick={() => void lockScreen()}
@@ -106,6 +113,11 @@ export function Titlebar({ showAccount = false }: TitlebarProps) {
           >
             <LogOut className="h-3.5 w-3.5" strokeWidth={1.75} />
           </button>
+
+          <CashierProfileModal
+            open={profileOpen}
+            onOpenChange={setProfileOpen}
+          />
         </div>
       )}
 
