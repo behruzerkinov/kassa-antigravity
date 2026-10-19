@@ -40,8 +40,7 @@
         "installMode": "both",
         "displayLanguageSelector": true,
         "languages": ["Russian", "English"],
-        "startMenuFolder": "Kassa POS",
-        "shortcutName": "Kassa POS"
+        "startMenuFolder": "Kassa POS"
       }
     }
   }
