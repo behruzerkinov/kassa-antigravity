@@ -10,6 +10,8 @@ import { SmenaControls } from '../components/SmenaControls';
 import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
 import { PaymentModal, type PaymentMethod } from '../pages/PaymentModal';
 import { NumpadPanel } from '../components/NumpadPanel';
+import { CartRail } from '../components/CartRail';
+import { Hash, ReceiptText, Settings2 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useCartStore } from '../stores/cartStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -22,7 +24,7 @@ export function AppLayout() {
   const { t } = useTranslation();
   const { openSmena, lockScreen, token, logoutConfirmOpen, setLogoutConfirmOpen } = useAuthStore();
   const { activeCart, createCart, refreshCarts, refreshParkedCarts } = useCartStore();
-  const { lockTime } = useSettingsStore();
+  const { lockTime, touchDeviceMode: touchMode } = useSettingsStore();
   const { refresh: refreshSync } = useSyncStore();
 
   const [panel, setPanel] = useState<Panel>('numpad');
@@ -82,49 +84,68 @@ export function AppLayout() {
     [],
   );
 
-  const tabs: Array<{ id: Panel; label: string; count?: number }> = [
-    { id: 'numpad', label: t('shell.tab_numpad') },
-    { id: 'receipts', label: t('shell.tab_receipts') },
-    { id: 'settings', label: t('shell.tab_settings') },
+  const tabs: Array<{ id: Panel; label: string; icon: typeof Hash }> = [
+    { id: 'numpad', label: t('shell.tab_numpad'), icon: Hash },
+    { id: 'receipts', label: t('shell.tab_receipts'), icon: ReceiptText },
+    { id: 'settings', label: t('shell.tab_settings'), icon: Settings2 },
   ];
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-counter">
       <Titlebar showAccount />
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_360px]">
+      <div
+        className={cn(
+          'grid min-h-0 flex-1',
+          touchMode
+            ? 'grid-cols-[clamp(168px,15vw,232px)_minmax(0,1fr)_clamp(330px,28vw,440px)]'
+            : 'grid-cols-[minmax(0,1fr)_360px]',
+        )}
+      >
+        {touchMode && <CartRail />}
+
         <main className="flex min-h-0 min-w-0 flex-col border-r border-rule bg-counter">
           <SellPage
             onRequestPayment={requestPayment}
             onOpenShift={() => setSmenaOpen(true)}
             noShift={!openSmena}
+            touchMode={touchMode}
           />
         </main>
 
         <aside className="flex min-h-0 flex-col bg-paper-deep">
-          <div role="tablist" aria-label={t('shell.tabs')} className="flex shrink-0 border-b border-rule bg-paper">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={panel === tab.id}
-                aria-controls={`panel-${tab.id}`}
-                onClick={() => setPanel(tab.id)}
-                className={cn(
-                  'relative min-h-11 flex-1 px-2 py-3 text-[13px] font-medium transition-colors',
-                  panel === tab.id
-                    ? 'text-ink after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-carbon'
-                    : 'text-ink-soft hover:bg-counter hover:text-ink',
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div
+            role="tablist"
+            aria-label={t('shell.tabs')}
+            className="flex shrink-0 border-b border-rule bg-paper"
+          >
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={panel === tab.id}
+                  aria-controls={`panel-${tab.id}`}
+                  onClick={() => setPanel(tab.id)}
+                  className={cn(
+                    'relative flex flex-1 items-center justify-center gap-2 px-2 font-medium transition-colors',
+                    touchMode ? 'min-h-16 text-[15px]' : 'min-h-11 py-3 text-[13px]',
+                    panel === tab.id
+                      ? 'text-ink after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-carbon'
+                      : 'text-ink-soft hover:bg-counter hover:text-ink',
+                  )}
+                >
+                  {touchMode && <Icon className="h-5 w-5" strokeWidth={1.75} />}
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
 
           <div id={`panel-${panel}`} role="tabpanel" className="min-h-0 flex-1">
-            {panel === 'numpad' && <NumpadPanel cart={activeCart} onRequestPayment={requestPayment} />}
+            {panel === 'numpad' && <NumpadPanel cart={activeCart} touchMode={touchMode} />}
             {panel === 'receipts' && <ReceiptsPanel key={receiptsVersion} />}
             {panel === 'settings' && <SettingsPanel />}
           </div>

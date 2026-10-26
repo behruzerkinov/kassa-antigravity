@@ -2,6 +2,16 @@
 
 All notable changes to the Kassa POS application are documented here.
 
+## [1.0.7] - 2026-10-26
+
+### Changed
+- **Numpad now does exactly two things**: only **Сумма** and **Скидка** sit above the number grid. "Сумма" enters an amount for the selected line (36 000 сум of apples → 2 kg at 18 000) and converts it to quantity; "Скидка" applies a percentage to the selected line. Cash tender, denominations and change moved entirely into the payment dialog, whole-receipt discounts stay in the receipt action bar, and quantity steppers stay on the receipt rows.
+- **Touch mode is now a different layout, not a CSS switch**: cheques move to a permanent left rail with large cards (name, position count, total), the side tabs and number pad grow, receipt rows get taller hit areas, the total band and pay button enlarge, and columns re-balance so nothing is cramped.
+- **Safer closings**: in touch mode a cheque is closed from the rail footer (never a small × inside the card) and the confirmation names the cheque being closed.
+- Touch mode applies instantly when toggled and still persists across launches.
+
+---
+
 ## [1.0.6] - 2026-10-26
 
 ### Improved

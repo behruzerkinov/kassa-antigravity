@@ -26,9 +26,10 @@ interface SellPageProps {
   onRequestPayment: (method: PaymentMethod) => void;
   onOpenShift: () => void;
   noShift: boolean;
+  touchMode?: boolean;
 }
 
-export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPageProps) {
+export function SellPage({ onRequestPayment, onOpenShift, noShift, touchMode = false }: SellPageProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const {
@@ -68,6 +69,12 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
 
   const scannerRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Touch mode drops the price column (it moves under the product name) so the
+  // remaining columns stay comfortable to hit on a screen.
+  const rowGrid = touchMode
+    ? 'grid-cols-[minmax(0,1fr)_148px_124px_60px]'
+    : 'grid-cols-[minmax(0,1fr)_88px_136px_104px_72px]';
 
   const focusScanner = useCallback(() => {
     window.setTimeout(() => {
@@ -310,11 +317,14 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
       )}
 
       {/* Scan and search */}
-      <div className="shrink-0 border-b border-rule bg-paper px-4 pb-3 pt-4">
-        <div className="flex gap-3">
-          <form onSubmit={handleScan} className="min-w-0 flex-[1.35]">
+      <div className={cn('shrink-0 border-b border-rule bg-paper', touchMode ? 'px-4 pb-4 pt-4' : 'px-4 pb-3 pt-4')}>
+        <div className={cn('flex', touchMode ? 'flex-col gap-3' : 'gap-3')}>
+          <form onSubmit={handleScan} className={cn('min-w-0', touchMode ? 'w-full' : 'flex-[1.35]')}>
             <div className="mb-1.5 flex items-center justify-between">
-              <label htmlFor="scan-input" className="block text-[12px] font-medium text-ink-soft">
+              <label
+                htmlFor="scan-input"
+                className={cn('block font-medium text-ink-soft', touchMode ? 'text-[13px]' : 'text-[12px]')}
+              >
                 {t('sell.scan_label')}
               </label>
               <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
@@ -338,7 +348,7 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
                 placeholder={t('sell.scan_placeholder')}
                 autoComplete="off"
                 spellCheck={false}
-                className="h-12 pl-9 pr-16 text-[16px]"
+                className={cn('pl-9 pr-16', touchMode ? 'h-16 text-[20px]' : 'h-12 text-[16px]')}
                 disabled={busy}
               />
               <span className="num pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-ink-faint">
@@ -347,8 +357,11 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
             </div>
           </form>
 
-          <div className="relative min-w-0 flex-1">
-            <label htmlFor="search-input" className="mb-1.5 block text-[12px] font-medium text-ink-soft">
+          <div className={cn('relative min-w-0', touchMode ? 'w-full' : 'flex-1')}>
+            <label
+              htmlFor="search-input"
+              className={cn('mb-1.5 block font-medium text-ink-soft', touchMode ? 'text-[13px]' : 'text-[12px]')}
+            >
               {t('sell.search_label')}
             </label>
             <form onSubmit={handleSearchSubmit}>
@@ -368,7 +381,7 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
                   }}
                   placeholder={t('sell.search_placeholder')}
                   autoComplete="off"
-                  className="h-12 pl-9 pr-10"
+                  className={cn('pl-9 pr-10', touchMode ? 'h-16 text-[17px]' : 'h-12')}
                 />
                 {search && (
                   <button
@@ -435,7 +448,8 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
         </div>
       </div>
 
-      {/* Cart tabs */}
+      {/* Cart tabs — in touch mode cheques live in the left rail instead */}
+      {!touchMode && (
       <div className="flex shrink-0 items-end gap-1 overflow-x-auto border-b border-rule bg-counter-deep px-4 pt-2">
         {carts.map((entry, index) => {
           const createdOrder = [...carts]
@@ -520,6 +534,7 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
           </button>
         </div>
       </div>
+      )}
 
       {/* Ledger */}
       <div className="min-h-0 flex-1 overflow-auto bg-paper">
@@ -541,15 +556,27 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
                   Загрузить демо-товары
                 </button>
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-px border border-rule bg-rule xl:grid-cols-3">
+              <div
+                className={cn(
+                  'mt-3 grid gap-px border border-rule bg-rule',
+                  touchMode ? 'grid-cols-2' : 'grid-cols-2 xl:grid-cols-3',
+                )}
+              >
                 {quickProducts.map((product) => (
                   <button
                     key={product.id}
                     type="button"
                     onClick={() => product.barcode && void addProduct(product.barcode)}
-                    className="group flex min-h-[70px] flex-col items-start justify-between bg-paper p-3 text-left transition-colors hover:bg-counter"
+                    className={cn(
+                      'group flex flex-col items-start justify-between bg-paper text-left transition-colors hover:bg-counter',
+                      touchMode ? 'min-h-[96px] p-4' : 'min-h-[70px] p-3',
+                    )}
                   >
-                    <span className="line-clamp-2 text-[13px] leading-snug text-ink">{product.name}</span>
+                    <span
+                      className={cn('line-clamp-2 leading-snug text-ink', touchMode ? 'text-[15px]' : 'text-[13px]')}
+                    >
+                      {product.name}
+                    </span>
                     <span className="mt-2 flex w-full items-baseline justify-between">
                       <span className="num text-[12px] text-ink-soft">{formatPrice(product.price)}</span>
                       <span className="text-[10px] text-ink-faint">
@@ -563,12 +590,18 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
           </div>
         ) : (
           <>
-            <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_88px_136px_104px_72px] gap-3 border-b border-rule bg-paper-deep px-4 py-2 text-[11px] font-medium text-ink-soft">
+            <div
+              className={cn(
+                'sticky top-0 z-10 grid gap-3 border-b border-rule bg-paper-deep px-4 py-2 font-medium text-ink-soft',
+                rowGrid,
+                touchMode ? 'text-[12px] uppercase tracking-[0.06em]' : 'text-[11px]',
+              )}
+            >
               <span>{t('sell.col_name')}</span>
-              <span className="text-right">{t('sell.col_price')}</span>
+              {!touchMode && <span className="text-right">{t('sell.col_price')}</span>}
               <span className="text-center">{t('sell.col_qty')}</span>
               <span className="text-right">{t('sell.col_sum')}</span>
-              <span className="text-right">{t('sell.col_actions')}</span>
+              <span className="text-right">{touchMode ? '' : t('sell.col_actions')}</span>
             </div>
 
             <ul>
@@ -587,18 +620,27 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
                       }
                     }}
                     className={cn(
-                      'group relative grid min-h-14 grid-cols-[minmax(0,1fr)_88px_136px_104px_72px] items-center gap-3 border-b border-rule px-4 py-2 cursor-pointer transition-all outline-none',
+                      'group relative grid cursor-pointer items-center gap-3 border-b border-rule border-l-[3.5px] px-4 transition-all outline-none',
+                      rowGrid,
+                      touchMode ? 'min-h-[84px] py-2.5' : 'min-h-14 py-2',
                       isSelected
-                        ? 'bg-carbon-tint/40 dark:bg-carbon-tint/25 border-l-[3.5px] border-l-carbon shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]'
-                        : 'hover:bg-paper-deep border-l-[3.5px] border-l-transparent',
+                        ? 'border-l-carbon bg-carbon-tint/40 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] dark:bg-carbon-tint/25'
+                        : 'border-l-transparent hover:bg-paper-deep',
                       recentItemId === item.id && 'animate-print',
                     )}
                   >
                     <div className="min-w-0">
-                      <p className={cn('truncate text-[14px]', isSelected ? 'font-medium text-ink' : 'text-ink')}>
+                      <p
+                        className={cn(
+                          'truncate text-ink',
+                          touchMode ? 'text-[16px]' : 'text-[14px]',
+                          isSelected ? 'font-semibold' : 'font-normal',
+                        )}
+                      >
                         {item.name}
                       </p>
-                      <p className="num mt-0.5 flex items-center gap-2 text-[10px] text-ink-faint">
+                      <p className={cn('num flex items-center gap-2 text-ink-faint', touchMode ? 'mt-1 text-[12px]' : 'mt-0.5 text-[10px]')}>
+                        {touchMode && <span className="shrink-0">{formatPrice(item.price)}</span>}
                         <span className="truncate">{item.barcode}</span>
                         {item.discount_type && (
                           <span className="shrink-0 font-medium text-warning">
@@ -610,15 +652,17 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
                       </p>
                     </div>
 
-                    <span className="num text-right text-[13px] text-ink">{formatPrice(item.price)}</span>
+                    {!touchMode && (
+                      <span className="num text-right text-[13px] text-ink">{formatPrice(item.price)}</span>
+                    )}
 
                     <div className="flex items-center justify-center">
                       {item.is_weighted ? (
-                        <span className="num text-[13px] text-ink-soft">
+                        <span className={cn('num text-ink-soft', touchMode ? 'text-[15px]' : 'text-[13px]')}>
                           {formatQty(item.qty)} кг
                         </span>
                       ) : (
-                        <div className="flex items-center border border-rule-strong bg-paper">
+                        <div className="flex items-center rounded-md border border-rule-strong bg-paper">
                           <button
                             type="button"
                             aria-label={t('sell.decrease')}
@@ -627,11 +671,19 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
                               void handleQty(item, item.qty - 1);
                             }}
                             disabled={item.qty <= 1}
-                            className="flex h-10 w-10 items-center justify-center text-ink-soft transition-colors hover:bg-counter hover:text-ink disabled:opacity-35"
+                            className={cn(
+                              'flex items-center justify-center text-ink-soft transition-colors hover:bg-counter hover:text-ink disabled:opacity-35',
+                              touchMode ? 'h-[52px] w-[48px]' : 'h-10 w-10',
+                            )}
                           >
-                            <Minus className="h-3.5 w-3.5" strokeWidth={2} />
+                            <Minus className={touchMode ? 'h-4 w-4' : 'h-3.5 w-3.5'} strokeWidth={2.2} />
                           </button>
-                          <span className="num flex h-10 w-11 items-center justify-center border-x border-rule text-[13px] text-ink font-medium">
+                          <span
+                            className={cn(
+                              'num flex items-center justify-center border-x border-rule font-medium text-ink',
+                              touchMode ? 'h-[52px] w-[48px] text-[16px]' : 'h-10 w-11 text-[13px]',
+                            )}
+                          >
                             {formatQty(item.qty)}
                           </span>
                           <button
@@ -641,15 +693,23 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
                               e.stopPropagation();
                               void handleQty(item, item.qty + 1);
                             }}
-                            className="flex h-10 w-10 items-center justify-center text-ink-soft transition-colors hover:bg-counter hover:text-ink"
+                            className={cn(
+                              'flex items-center justify-center text-ink-soft transition-colors hover:bg-counter hover:text-ink',
+                              touchMode ? 'h-[52px] w-[48px]' : 'h-10 w-10',
+                            )}
                           >
-                            <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+                            <Plus className={touchMode ? 'h-4 w-4' : 'h-3.5 w-3.5'} strokeWidth={2.2} />
                           </button>
                         </div>
                       )}
                     </div>
 
-                    <span className="num text-right text-[15px] font-semibold tracking-tight text-ink">
+                    <span
+                      className={cn(
+                        'num text-right font-semibold tracking-tight text-ink',
+                        touchMode ? 'text-[17px]' : 'text-[15px]',
+                      )}
+                    >
                       {formatPrice(item.final_price)}
                     </span>
 
@@ -670,11 +730,12 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
                           });
                         }}
                         className={cn(
-                          'flex h-9 w-9 items-center justify-center transition-colors hover:bg-counter hover:text-carbon',
+                          'flex items-center justify-center rounded-md transition-colors hover:bg-counter hover:text-carbon',
+                          touchMode ? 'h-[48px] w-[48px]' : 'h-9 w-9',
                           item.discount_type ? 'text-warning' : 'text-ink-faint',
                         )}
                       >
-                        <Percent className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        <Percent className={touchMode ? 'h-4 w-4' : 'h-3.5 w-3.5'} strokeWidth={1.75} />
                       </button>
                       <button
                         type="button"
@@ -684,9 +745,12 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
                           e.stopPropagation();
                           setRemoveTarget(item);
                         }}
-                        className="flex h-9 w-9 items-center justify-center text-ink-faint transition-colors hover:bg-danger-tint hover:text-danger"
+                        className={cn(
+                          'flex items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-danger-tint hover:text-danger',
+                          touchMode ? 'h-[48px] w-[48px]' : 'h-9 w-9',
+                        )}
                       >
-                        <X className="h-4 w-4" strokeWidth={1.75} />
+                        <X className={touchMode ? 'h-5 w-5' : 'h-4 w-4'} strokeWidth={1.75} />
                       </button>
                     </div>
                   </li>
@@ -700,10 +764,10 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
       {/* Total band */}
       <div className="shrink-0 border-t border-rule bg-paper">
         <div className="flex items-stretch">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 px-4 py-3">
+          <div className={cn('flex min-w-0 flex-1 flex-wrap items-center gap-2 px-4', touchMode ? 'gap-2.5 py-4' : 'py-3')}>
             <Button
               variant="outline"
-              size="sm"
+              size={touchMode ? 'lg' : 'sm'}
               onClick={() =>
                 setDiscountTarget({
                   kind: 'cart',
@@ -720,13 +784,18 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
               <Percent className="h-3.5 w-3.5" strokeWidth={1.75} />
               {t('sell.discount_cart')}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => void openPark()} disabled={!items.length}>
+            <Button
+              variant="outline"
+              size={touchMode ? 'lg' : 'sm'}
+              onClick={() => void openPark()}
+              disabled={!items.length}
+            >
               <Archive className="h-3.5 w-3.5" strokeWidth={1.75} />
               {t('sell.park')}
             </Button>
             <Button
               variant="dangerGhost"
-              size="sm"
+              size={touchMode ? 'lg' : 'sm'}
               onClick={() => setClearOpen(true)}
               disabled={!items.length}
             >
@@ -740,12 +809,17 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
             )}
           </div>
 
-          <div className="flex shrink-0 items-center gap-4 border-l border-rule px-4 py-3">
+          <div className={cn('flex shrink-0 items-center gap-4 border-l border-rule px-4', touchMode ? 'py-4' : 'py-3')}>
             <div className="text-right">
-              <p className="text-[11px] text-ink-soft">
+              <p className={cn('text-ink-soft', touchMode ? 'text-[12px]' : 'text-[11px]')}>
                 {t('payment.total')} · {t('sell.items', { count: items.length })}
               </p>
-              <p className="num mt-0.5 text-[38px] font-semibold leading-none tracking-tighter text-ink">
+              <p
+                className={cn(
+                  'num mt-0.5 font-semibold leading-none tracking-tighter text-ink',
+                  touchMode ? 'text-[44px]' : 'text-[38px]',
+                )}
+              >
                 {formatPrice(total)}
               </p>
             </div>
@@ -753,7 +827,7 @@ export function SellPage({ onRequestPayment, onOpenShift, noShift }: SellPagePro
               size="xl"
               onClick={() => onRequestPayment('cash')}
               disabled={!items.length}
-              className="min-w-[150px]"
+              className={cn(touchMode ? 'min-h-16 min-w-[220px] text-[18px]' : 'min-w-[150px]')}
             >
               {t('sell.pay')}
               <span className="num ml-1 text-[10px] font-normal opacity-70">F1</span>

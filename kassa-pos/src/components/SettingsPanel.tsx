@@ -221,7 +221,7 @@ export function SettingsPanel() {
                       ? t('settings.touch_enabled')
                       : t('settings.touch_disabled'),
                     description: option.id === 'on'
-                      ? t('settings.touch_apply_restart')
+                      ? t('settings.touch_live_hint')
                       : t('settings.touch_restore'),
                     variant: 'default',
                   });

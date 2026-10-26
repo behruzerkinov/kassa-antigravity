@@ -1,6 +1,6 @@
 [package]
 name = "kassa-pos"
-version = "1.0.4"
+version = "1.0.7"
 description = "Kassa POS - Point of Sale Cashier Application"
 authors = ["you"]
 edition = "2021"
