@@ -229,19 +229,7 @@ export function PaymentModal({ cart, initialMethod, onClose, onPaid }: PaymentMo
     } catch {
       // Hardware is optional in M1.
     }
-    if (autoPrint && printerName) {
-      try {
-        await invoke('print_receipt', {
-          transactionId: transaction.id,
-          printerName,
-          width: printerWidth,
-        });
-      } catch {
-        // Printing must never block a completed sale.
-      }
-    }
-
-    toast({
+toast({
       title: debt > 0 ? t('payment.debt_success') : t('payment.success'),
       description:
         debt > 0

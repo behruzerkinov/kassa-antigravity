@@ -165,14 +165,8 @@ export function NumpadPanel({ cart, onRequestPayment }: NumpadPanelProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyPress, handleApply]);
 
-  const quickStep = async (step: number) => {
-    if (!selectedItem) return;
-    const current = selectedItem.qty || 1;
-    const next = Math.max(0.1, Number((current + step).toFixed(2)));
-    await updateItemQty(selectedItem.id, next);
-  };
-
   const total = cart?.total ?? 0;
+
   const tenderChange = useMemo(() => {
     if (mode !== 'tender') return 0;
     const val = parseFloat(buffer);
@@ -316,43 +310,7 @@ export function NumpadPanel({ cart, onRequestPayment }: NumpadPanelProps) {
         </div>
       </div>
 
-      {/* Quick Adjustment Pills */}
-      {mode === 'qty' && selectedItem && (
-        <div className="flex items-center justify-between gap-1.5 border-b border-rule px-3 py-2 bg-counter/30">
-          <button
-            type="button"
-            onClick={() => void quickStep(-1)}
-            className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-rule-strong/60 bg-paper py-1.5 text-[12px] font-medium text-ink hover:bg-counter active:scale-95 transition-all"
-          >
-            <Minus className="h-3 w-3" />
-            <span>1</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => void quickStep(1)}
-            className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-rule-strong/60 bg-paper py-1.5 text-[12px] font-medium text-ink hover:bg-counter active:scale-95 transition-all"
-          >
-            <Plus className="h-3 w-3" />
-            <span>1</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setBuffer('2')}
-            className="flex-1 rounded-lg border border-rule-strong/60 bg-paper py-1.5 text-[12px] font-medium text-ink hover:bg-counter active:scale-95 transition-all"
-          >
-            ×2
-          </button>
-          <button
-            type="button"
-            onClick={() => setBuffer('5')}
-            className="flex-1 rounded-lg border border-rule-strong/60 bg-paper py-1.5 text-[12px] font-medium text-ink hover:bg-counter active:scale-95 transition-all"
-          >
-            ×5
-          </button>
-        </div>
-      )}
-
-      {mode === 'tender' && (
+  {mode === 'tender' && (
         <div className="flex items-center justify-between gap-1 border-b border-rule px-3 py-2 bg-counter/30">
           {[10000, 50000, 100000, 200000].map((amt) => (
             <button
