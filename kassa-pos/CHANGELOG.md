@@ -2,6 +2,13 @@
 
 All notable changes to the Kassa POS application are documented here.
 
+## [1.0.6] - 2026-10-26
+
+### Improved
+- **Touch device mode**: Added touch_deviceMode setting in Settings that switches UI to touch-optimized layout; when enabled, shows toast reminder to restart app for changes to take effect.
+- **UI restyling for touch**: Enlarged touch targets (minimum 44px), increased base font size, simplified padding and spacing for finger-friendly interaction.
+- **Settings toggle**: New "Режим сенсора экрана" option in Settings panel allows switching between normal and touch modes; selection persists across app launches.
+
 ## [1.0.5] - 2026-10-26
 
 ### Improved
