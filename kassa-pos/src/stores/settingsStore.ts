@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware';
 
 export type Locale = 'ru' | 'uz-Cyrl' | 'uz-Latn';
 
+export type Theme = 'light' | 'dark';
+
 interface SettingsState {
   language: Locale;
   autoPrint: boolean;
@@ -11,7 +13,8 @@ interface SettingsState {
   printerWidth: 58 | 80;
   weightedPrefixes: string;
   autostart: boolean;
-  theme: 'light' | 'dark';
+  theme: Theme;
+  touchDeviceMode: boolean;
   setLanguage: (lang: Locale) => void;
   setAutoPrint: (auto: boolean) => void;
   setLockTime: (time: number) => void;
@@ -19,7 +22,8 @@ interface SettingsState {
   setPrinterWidth: (width: 58 | 80) => void;
   setWeightedPrefixes: (prefixes: string) => void;
   setAutostart: (enabled: boolean) => void;
-  setTheme: (theme: 'light' | 'dark') => void;
+  setTheme: (theme: Theme) => void;
+  setTouchDeviceMode: (enabled: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -33,6 +37,7 @@ export const useSettingsStore = create<SettingsState>()(
       weightedPrefixes: '27,28,29',
       autostart: false,
       theme: 'light',
+      touchDeviceMode: false,
       setLanguage: (language) => set({ language }),
       setAutoPrint: (autoPrint) => set({ autoPrint }),
       setLockTime: (lockTime) => set({ lockTime }),
@@ -41,6 +46,7 @@ export const useSettingsStore = create<SettingsState>()(
       setWeightedPrefixes: (weightedPrefixes) => set({ weightedPrefixes }),
       setAutostart: (autostart) => set({ autostart }),
       setTheme: (theme) => set({ theme }),
+      setTouchDeviceMode: (enabled) => set({ touchDeviceMode: enabled }),
     }),
     { name: 'kassa-settings' },
   ),

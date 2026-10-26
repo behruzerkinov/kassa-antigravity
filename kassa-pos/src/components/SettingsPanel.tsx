@@ -195,6 +195,51 @@ export function SettingsPanel() {
         </section>
 
         <section className="border-b border-rule px-4 py-3.5">
+          <SectionTitle>{t('settings.touch_device')}</SectionTitle>
+          <p className="mt-1.5 text-[11px] text-ink-soft">{t('settings.touch_device_hint')}</p>
+          <div className="mt-2 grid grid-cols-2 gap-px border border-rule-strong bg-rule">
+            {[
+              {
+                id: 'off',
+                label: t('settings.touch_off'),
+                selected: !settings.touchDeviceMode,
+              },
+              {
+                id: 'on',
+                label: t('settings.touch_on'),
+                selected: settings.touchDeviceMode,
+              },
+            ].map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => {
+                  settings.setTouchDeviceMode(option.id === 'on');
+                  saveSetting('touch_device_mode', String(option.id === 'on'));
+                  toast({
+                    title: option.id === 'on'
+                      ? t('settings.touch_enabled')
+                      : t('settings.touch_disabled'),
+                    description: option.id === 'on'
+                      ? t('settings.touch_apply_restart')
+                      : t('settings.touch_restore'),
+                    variant: 'default',
+                  });
+                }}
+                className={cn(
+                  'min-h-9 text-[12px] font-medium transition-colors',
+                  settings.touchDeviceMode === (option.id === 'on')
+                    ? 'bg-ink text-paper'
+                    : 'bg-paper text-ink-soft hover:bg-counter hover:text-ink',
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="border-b border-rule px-4 py-3.5">
           <div className="flex items-center justify-between">
             <SectionTitle>{t('settings.printer')}</SectionTitle>
             <button
